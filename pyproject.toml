@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "model-world-sme"
+version = "1.0.0"
+description = "Conversational business elicitation interview that produces a personalized world model for AI agents"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
+openai    = ["openai>=1.0"]
+ollama    = ["httpx>=0.25"]
+google    = ["google-genai>=0.8"]
+mistral   = ["mistralai>=1.0"]
+all       = ["anthropic>=0.40", "openai>=1.0", "httpx>=0.25", "google-genai>=0.8", "mistralai>=1.0"]
+dev       = ["pytest>=8.0", "pytest-asyncio>=0.24"]
+
+[project.urls]
+Homepage   = "https://github.com/RichardClawson013/ModelWorldSME"
+Repository = "https://github.com/RichardClawson013/ModelWorldSME"
+Issues     = "https://github.com/RichardClawson013/ModelWorldSME/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["model_world_sme"]
