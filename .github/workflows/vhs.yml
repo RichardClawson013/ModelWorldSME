@@ -1,16 +1,14 @@
-name: Generate demo SVG
+name: Update demo SVG
 
 on:
   push:
     branches: [main]
     paths:
-      - examples/demo_run.py
-      - demo.tape
-      - .github/workflows/vhs.yml
+      - scripts/generate_demo_svg.py
   workflow_dispatch:
 
 jobs:
-  demo:
+  generate:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,20 +19,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          pip install -e . -q
-          pip install termtosvg -q
-
-      - name: Record demo as animated SVG
-        run: |
-          mkdir -p docs
-          termtosvg docs/demo.svg \
-            --command "python examples/demo_run.py" \
-            --template window_frame \
-            --width 100 \
-            --min-frame-duration 0.05
-        timeout-minutes: 2
+      - name: Generate SVG
+        run: python scripts/generate_demo_svg.py
 
       - name: Commit SVG
         uses: stefanzweifel/git-auto-commit-action@v5
