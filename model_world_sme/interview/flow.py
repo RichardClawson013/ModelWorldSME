@@ -115,7 +115,7 @@ class InterviewFlow:
         return InterviewResult(
             worldmodel_json=export_worldmodel_json(self._model, self._confirmed_ids),
             agent_config_yaml=export_agent_config_yaml(self._model, self._confirmed_ids),
-            soul_md=export_soul_md(self._model),
+            soul_md=export_soul_md(self._model, self._confirmed_ids),
             html_report=build_html_report(self._model, self._confirmed_ids),
             summary=build_summary(self._model, self._confirmed_ids),
             warnings=check_consistency(self._model),

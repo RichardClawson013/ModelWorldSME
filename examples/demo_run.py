@@ -214,7 +214,7 @@ def main() -> None:
     print()
     print(BOLD + f"── SOUL_{agent}.md ────────────────────────────────" + RESET)
     soul_lines = result.soul_md.splitlines()
-    for line in soul_lines[:14]:
+    for line in soul_lines[:40]:
         print(CYAN + line + RESET)
 
     print()
