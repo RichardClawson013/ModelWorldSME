@@ -128,7 +128,7 @@ Interview (conversation)
         ↓
 worldmodel_Nova.json      ← what the business does (personalized from 2,986-task knowledge base)
 agent_config_Nova.yaml    ← how Nova behaves in that world
-SOUL_Nova.md              ← who Nova is
+SOUL_Nova.md              ← who Nova is (12 sections built from the interview: values, failure stories, autonomy rules, communication style)
 report_Nova.html          ← risk, autonomy, and opportunity analysis (print to PDF)
 ```
 
@@ -228,7 +228,24 @@ escalation:
 ```
 
 ### SOUL.md
-A Markdown identity file — pre-filled from interview answers, ready to extend.
+
+Twelve sections, no placeholders. Built entirely from the interview:
+
+| Section | Source |
+|---|---|
+| What good work looks like | Laddering depth-0: the owner's own practice descriptions |
+| Consequences when it slips | Laddering depth-1: what breaks and how |
+| What is actually at stake | Laddering depth-2: the deepest value ("I've had to delay payroll once. Never again.") |
+| Autonomy — handle alone | From the owner's explicit autonomy answer |
+| Autonomy — always check first | From the owner's explicit autonomy answer |
+| Hard limits | Tasks the owner said to never touch |
+| Escalation rules | Specific thresholds and triggers from the interview |
+| Operating guardrails | Domain-specific constraints from the world model |
+| Failure protocol | Exception stories in the owner's own words |
+| Communication style | Direct, single-question, structured — derived from context |
+| Memory anchors | Facts that persist across every session |
+
+Grounded in Constitutional AI (Bai et al. 2022): specific enough that you can predict the agent's behaviour on situations not explicitly covered. Injected as system context at the start of every session.
 
 ### report.html
 A printable business analysis report covering risk tiers, autonomy breakdown, opportunity sizing, and compliance. Open in any browser and print to PDF.

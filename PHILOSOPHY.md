@@ -34,9 +34,17 @@ ModelWorldSME implements all three, linked together, in a single conversation.
 
 ## What comes out
 
-Three files. One JSON world model containing the tasks that are real for this business — not guessed, not averaged, confirmed through conversation. One YAML agent configuration describing what the agent can do alone and what it must ask first. One Markdown identity file — the SOUL — that tells the agent who it is.
+Four files.
 
-The owner answered the questions. The outputs reflect that. The agent operates in a world it actually understands.
+**The world model** — every task confirmed during the conversation, with the causal chains that connect them and the failure modes the owner described. Not a list of what a business like this might do. A map of what *this* business actually does, with downstream consequences attached.
+
+**The configuration** — what the agent can do without asking, what it needs approval for, what it should never touch. Specific thresholds. Exact escalation triggers. Built from what the owner said, not inferred from general principles.
+
+**The identity file — the SOUL** — twelve sections, no placeholders. The owner's own words on what good work looks like. The consequence they described when it slips. The deepest value at stake — "I've had to delay payroll once. Never again. That's the line." The failure stories from lived experience. The communication style. The hard limits. The facts that carry across every session. Grounded in Constitutional AI (Bai et al. 2022): an identity document specific enough that you can predict the agent's behaviour on situations it has never explicitly encountered. Injected at every session start.
+
+**The report** — a printable analysis of the business: risk tiers by domain, automation opportunities, compliance gaps. Open in a browser, print to PDF.
+
+The owner answered the questions. The outputs reflect that. The agent operates in a world it actually understands — including the parts the owner has never written down.
 
 ## The name
 
