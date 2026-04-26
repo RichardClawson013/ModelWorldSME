@@ -1231,7 +1231,7 @@ function finishInterview() {
       mime: 'application/json',
       icon: '🗺️',
       label: 'World Model',
-      desc: 'Confirmed tasks (JSON)',
+      desc: 'Your business, mapped (JSON) — load this into your agent',
     },
     {
       name: `agent_config_${result.agent_name}.yaml`,
@@ -1239,7 +1239,7 @@ function finishInterview() {
       mime: 'text/yaml',
       icon: '⚙️',
       label: 'Agent Config',
-      desc: 'Autonomy & escalation (YAML)',
+      desc: 'What the agent can do alone vs. ask you (YAML)',
     },
     {
       name: `SOUL_${result.agent_name}.md`,
@@ -1255,7 +1255,7 @@ function finishInterview() {
       mime: 'text/html',
       icon: '📊',
       label: 'Analysis Report',
-      desc: 'Risks & opportunities (HTML→PDF)',
+      desc: 'Risk analysis, automation opportunities (open in browser → print PDF)',
     },
   ];
 
@@ -1311,7 +1311,7 @@ async function boot() {
     showQuestion(firstQ);
   } catch (err) {
     loading.innerHTML = `
-      <p style="color:#ef4444;font-weight:600">Could not load knowledge base</p>
+      <p style="color:#ef4444;font-weight:600">Could not load the knowledge base</p>
       <p style="color:#6b7280;font-size:0.875rem;margin-top:8px">${err.message}</p>
       <p style="color:#6b7280;font-size:0.8rem;margin-top:16px">
         Run locally: <code>python examples/terminal_example.py</code>
