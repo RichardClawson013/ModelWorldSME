@@ -23,10 +23,15 @@ jobs:
       - name: Install package
         run: pip install -e . -q
 
+      - name: Verify demo script runs
+        run: python examples/demo_run.py
+        timeout-minutes: 2
+
       - name: Generate GIF with VHS
-        uses: charmbracelet/vhs-action@v2
+        uses: charmbracelet/vhs-action@v1
         with:
           path: demo.tape
+        timeout-minutes: 3
 
       - name: Commit GIF
         uses: stefanzweifel/git-auto-commit-action@v5

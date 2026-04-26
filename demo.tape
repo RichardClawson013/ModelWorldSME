@@ -7,17 +7,16 @@ Output docs/demo.gif
 Set Shell "bash"
 Set FontSize 13
 Set Width 900
-Set Height 540
+Set Height 560
 Set Theme "Dracula"
-Set TypingSpeed 20ms
 Set Padding 20
 
 Hide
-  Type "pip install -e . -q && clear"
+  Type "clear"
   Enter
-  Sleep 3s
+  Sleep 500ms
 Show
 
 Type "python examples/demo_run.py"
 Enter
-Sleep 15s
+Sleep 60s
