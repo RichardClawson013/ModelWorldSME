@@ -1,5 +1,10 @@
 # ModelWorldSME
 
+[![CI](https://github.com/RichardClawson013/ModelWorldSME/actions/workflows/ci.yml/badge.svg)](https://github.com/RichardClawson013/ModelWorldSME/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/model-world-sme)](https://pypi.org/project/model-world-sme/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/pypi/pyversions/model-world-sme)](https://pypi.org/project/model-world-sme/)
+
 > One conversational interview. Three outputs. Any provider. Any model. Any orchestrator.
 
 ModelWorldSME is an open-source library that turns a natural conversation with a business owner into a structured, personalized **world model** their AI agent can operate in.
@@ -121,9 +126,9 @@ pip install -e .
 ## Quick start
 
 ```python
-from model_world_sme import InterviewFlow
+from model_world_sme import InterviewFlow, default_worldmodel_path
 
-flow = InterviewFlow(worldmodel_path="worldmodel/sme_worldmodel_v1.5.json")
+flow = InterviewFlow(worldmodel_path=default_worldmodel_path())
 
 question = flow.next()          # first question, no answer yet
 while question:

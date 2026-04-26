@@ -9,6 +9,23 @@ description = "Conversational business elicitation interview that produces a per
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
+authors = [{ name = "RichardClawson013" }]
+keywords = [
+    "ai-agent", "world-model", "business-elicitation", "sme",
+    "cognitive-task-analysis", "cdm", "laddering", "interview",
+    "agent-configuration", "llm", "orchestrator"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = []
 
 [project.optional-dependencies]
@@ -18,12 +35,16 @@ ollama    = ["httpx>=0.25"]
 google    = ["google-genai>=0.8"]
 mistral   = ["mistralai>=1.0"]
 all       = ["anthropic>=0.40", "openai>=1.0", "httpx>=0.25", "google-genai>=0.8", "mistralai>=1.0"]
-dev       = ["pytest>=8.0", "pytest-asyncio>=0.24"]
+dev       = ["pytest>=8.0"]
 
 [project.urls]
-Homepage   = "https://github.com/RichardClawson013/ModelWorldSME"
-Repository = "https://github.com/RichardClawson013/ModelWorldSME"
-Issues     = "https://github.com/RichardClawson013/ModelWorldSME/issues"
+Homepage      = "https://github.com/RichardClawson013/ModelWorldSME"
+Repository    = "https://github.com/RichardClawson013/ModelWorldSME"
+Issues        = "https://github.com/RichardClawson013/ModelWorldSME/issues"
+Documentation = "https://github.com/RichardClawson013/ModelWorldSME#readme"
 
 [tool.hatch.build.targets.wheel]
 packages = ["model_world_sme"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"worldmodel/sme_worldmodel_v1.5.json" = "model_world_sme/worldmodel/sme_worldmodel_v1.5.json"

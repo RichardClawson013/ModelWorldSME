@@ -5,13 +5,11 @@ No API key needed — matching is fully deterministic.
 Run: python examples/terminal_example.py
 """
 
-from pathlib import Path
-from model_world_sme import InterviewFlow
+from model_world_sme import InterviewFlow, default_worldmodel_path
 
 
 def main() -> None:
-    worldmodel = Path(__file__).parent.parent / "worldmodel" / "sme_worldmodel_v1.5.json"
-    flow = InterviewFlow(worldmodel_path=worldmodel)
+    flow = InterviewFlow(worldmodel_path=default_worldmodel_path())
 
     print("=" * 60)
     print("ModelWorldSME — Business Elicitation Interview")
