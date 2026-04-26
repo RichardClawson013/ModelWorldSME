@@ -1,7 +1,11 @@
 """
 scripts/generate_demo_gif.py — Generate animated demo GIF from real interview.
 
-Runs demo_run.py, captures real output, renders terminal-style animated GIF.
+Layout:
+  - Fixed 900×540 terminal frame throughout.
+  - Interview phase: scrolling window (last N lines visible).
+  - Output phase: each file shown as a full static page, held for several seconds.
+
 Output: docs/media/demo.gif
 """
 
@@ -32,187 +36,245 @@ def _load_font(size: int):
     return ImageFont.load_default()
 
 
-# ── Terminal colours ──────────────────────────────────────────────────────────
+# ── Colours ───────────────────────────────────────────────────────────────────
 
 BG      = (18,  18,  24)
 FG      = (210, 210, 210)
-ANSWER  = (120, 220, 100)
-HEADER  = (255, 200,  80)
-OUTPUT  = (100, 180, 255)   # file output lines (cyan-blue)
+ANSWER  = (100, 210,  90)
+HEADER  = (255, 195,  60)
+OUTPUT  = ( 90, 175, 255)
+DIM     = (100, 100, 110)
 
 
-# ── ANSI strip ────────────────────────────────────────────────────────────────
+# ── Canvas ────────────────────────────────────────────────────────────────────
 
-_ANSI_ESC = re.compile(r"\x1b\[[0-9;]*m")
+W          = 900
+H          = 540
+FONT_SIZE  = 14
+PAD_X      = 24
+PAD_TOP    = 20
+LINE_H     = FONT_SIZE + 8
+WRAP_W     = 74    # chars per line at font size 14 on 900px
+MAX_SCROLL = (H - PAD_TOP * 2) // LINE_H   # lines that fit
 
-def strip_ansi(text: str) -> str:
-    return _ANSI_ESC.sub("", text)
+
+# ── ANSI ──────────────────────────────────────────────────────────────────────
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+def strip_ansi(s: str) -> str:
+    return _ANSI.sub("", s)
 
 
-# ── Classify lines ────────────────────────────────────────────────────────────
+# ── Classification ────────────────────────────────────────────────────────────
 
 def classify(raw: str) -> tuple[str, str]:
-    clean = strip_ansi(raw)
-    if clean.startswith("> "):
-        return "answer", clean[2:]
-    if "==" in clean and clean.strip().startswith("="):
-        return "header", clean
-    if clean.strip().startswith("──"):
-        return "section", clean
-    if clean.strip().startswith("  Tasks confirmed") or clean.strip().startswith("  Agent name") or clean.strip().startswith("  Saved"):
-        return "header", clean
-    if clean.strip() == "":
+    s = strip_ansi(raw)
+    if s.startswith("> "):
+        return "answer", s[2:]
+    if s.strip().startswith("====") or s.strip().startswith("  Tasks") or s.strip().startswith("  Agent") or s.strip().startswith("  Saved"):
+        return "header", s
+    if s.strip().startswith("──"):
+        return "section", s
+    if not s.strip():
         return "blank", ""
-    return "question", clean
+    return "question", s
 
 
-# ── Capture demo output ───────────────────────────────────────────────────────
+def colour_for(t: str) -> tuple:
+    return {"question": FG, "answer": ANSWER, "header": HEADER,
+            "section": HEADER, "blank": BG, "output": OUTPUT,
+            "dim": DIM}.get(t, FG)
 
-def capture_demo() -> list[str]:
-    result = subprocess.run(
+
+# ── Capture ───────────────────────────────────────────────────────────────────
+
+def capture() -> list[str]:
+    env = {**__import__("os").environ, "PYTHONPATH": str(ROOT)}
+    r = subprocess.run(
         [sys.executable, str(ROOT / "examples" / "demo_run.py")],
-        capture_output=True,
-        text=True,
-        env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
-        timeout=90,
+        capture_output=True, text=True, env=env, timeout=90,
     )
-    return result.stdout.splitlines()
+    return r.stdout.splitlines()
 
 
-# ── Colour map ────────────────────────────────────────────────────────────────
+# ── Render helpers ────────────────────────────────────────────────────────────
 
-def colour_for(line_type: str) -> tuple[int, int, int]:
-    return {
-        "question": FG,
-        "answer":   ANSWER,
-        "header":   HEADER,
-        "section":  HEADER,
-        "blank":    FG,
-        "output":   OUTPUT,
-    }.get(line_type, FG)
-
-
-# ── Frame duration ────────────────────────────────────────────────────────────
-
-def duration_for(line_type: str) -> int:
-    return {
-        "question": 200,
-        "answer":   160,
-        "header":   350,
-        "section":  250,
-        "blank":    60,
-        "output":   120,
-    }.get(line_type, 120)
-
-
-# ── Render ────────────────────────────────────────────────────────────────────
-
-WIDTH      = 860
-FONT_SIZE  = 13
-PAD_X      = 20
-PAD_TOP    = 16
-LINE_H     = FONT_SIZE + 6
-WRAP_WIDTH = 80
-MAX_LINES  = 28
-
-
-def wrap_lines(line_type: str, text: str) -> list[tuple[str, str]]:
-    """Wrap a single classified line into sub-lines, preserving type."""
-    if line_type == "blank":
-        return [("blank", "")]
-    display = ("> " + text) if line_type == "answer" else text
-    wrapped = textwrap.wrap(display, width=WRAP_WIDTH) or [display or ""]
-    return [(line_type, sub) for sub in wrapped]
-
-
-def render_window(window: list[tuple[str, str]], font) -> "Image":
+def new_frame(font) -> tuple:
     from PIL import Image, ImageDraw
-    h = PAD_TOP * 2 + len(window) * LINE_H
-    img = Image.new("P", (WIDTH, h))
-    # Build palette: BG, FG, ANSWER, HEADER, OUTPUT
-    palette_rgb = [BG, FG, ANSWER, HEADER, OUTPUT] + [(0, 0, 0)] * 251
-    flat: list[int] = []
-    for r, g, b in palette_rgb:
-        flat += [r, g, b]
-    img.putpalette(flat)
-    rgb = Image.new("RGB", (WIDTH, h), BG)
-    draw = ImageDraw.Draw(rgb)
-    for li, (lt, lt_text) in enumerate(window):
-        y = PAD_TOP + li * LINE_H
-        draw.text((PAD_X, y), lt_text, font=font, fill=colour_for(lt))
-    return rgb.quantize(colors=16, method=2)
+    img = Image.new("RGB", (W, H), BG)
+    draw = ImageDraw.Draw(img)
+    return img, draw
 
 
-def build_frames(all_lines: list[tuple[str, str]], font) -> tuple[list, list[int]]:
-    frames: list = []
-    durations: list[int] = []
+def quantize(img) -> "Image":
+    return img.quantize(colors=24, method=2)
+
+
+def draw_lines(draw, lines: list[tuple[str, str]], start_y: int = PAD_TOP) -> None:
+    for i, (lt, text) in enumerate(lines):
+        y = start_y + i * LINE_H
+        if y > H:
+            break
+        draw.text((PAD_X, y), text, font=None, fill=colour_for(lt))
+
+
+def draw_lines_font(draw, font, lines: list[tuple[str, str]], start_y: int = PAD_TOP) -> None:
+    for i, (lt, text) in enumerate(lines):
+        y = start_y + i * LINE_H
+        if y > H:
+            break
+        draw.text((PAD_X, y), text, font=font, fill=colour_for(lt))
+
+
+# ── Wrap a logical line into display sub-lines ────────────────────────────────
+
+def wrap(lt: str, text: str) -> list[tuple[str, str]]:
+    if lt == "blank":
+        return [("blank", "")]
+    display = ("> " + text) if lt == "answer" else text
+    parts = textwrap.wrap(display, width=WRAP_W) or [display or ""]
+    return [(lt, p) for p in parts]
+
+
+# ── Build scrolling interview frames ──────────────────────────────────────────
+
+def interview_frames(lines: list[tuple[str, str]], font) -> tuple[list, list[int]]:
+    """One frame per logical line, scrolling window."""
+    frames, durs = [], []
     visible: list[tuple[str, str]] = []
-    pending_blank = False
+    skip_blank = True
 
-    for line_type, text in all_lines:
-        if line_type == "blank":
-            pending_blank = True
+    for lt, text in lines:
+        if lt == "blank":
+            if not skip_blank:
+                visible.append(("blank", ""))
             continue
+        skip_blank = False
 
-        if pending_blank:
-            visible.append(("blank", ""))
-            pending_blank = False
+        for sl, st in wrap(lt, text):
+            visible.append((sl, st))
 
-        # Add all wrapped sub-lines to visible, emit ONE frame per logical line
-        sub_lines = wrap_lines(line_type, text)
-        for lt, sub in sub_lines:
-            visible.append((lt, sub))
+        window = visible[-MAX_SCROLL:]
+        img, draw = new_frame(font)
+        draw_lines_font(draw, font, window)
+        frames.append(quantize(img))
+        durs.append({"question": 220, "answer": 170, "header": 400, "section": 280}.get(lt, 150))
 
-        window = visible[-MAX_LINES:]
-        frames.append(render_window(window, font))
-        durations.append(duration_for(line_type))
+    return frames, durs
 
-    # Hold last frame
-    if frames:
-        durations[-1] = 3500
 
-    return frames, durations
+# ── Build static output page frames ──────────────────────────────────────────
 
+def output_page_frames(sections: list[tuple[str, list[tuple[str, str]]]], font) -> tuple[list, list[int]]:
+    """Each output file rendered as a full static page, held for 3.5s."""
+    frames, durs = [], []
+
+    for title, content_lines in sections:
+        img, draw = new_frame(font)
+
+        # Title bar
+        draw.rectangle([(0, 0), (W, LINE_H + PAD_TOP)], fill=(30, 30, 40))
+        draw.text((PAD_X, 6), title, font=font, fill=HEADER)
+
+        # Content
+        y = PAD_TOP + LINE_H + 8
+        for lt, text in content_lines:
+            if y > H - LINE_H:
+                draw.text((PAD_X, y), "…", font=font, fill=DIM)
+                break
+            for sub_lt, sub in wrap(lt, text):
+                draw.text((PAD_X, y), sub, font=font, fill=colour_for(sub_lt))
+                y += LINE_H
+                if y > H - LINE_H:
+                    break
+
+        frames.append(quantize(img))
+        durs.append(3500)
+
+    return frames, durs
+
+
+# ── Split output lines into per-file sections ─────────────────────────────────
+
+def split_output_sections(output_lines: list[tuple[str, str]]) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Group output lines by ── section headers."""
+    sections: list[tuple[str, list]] = []
+    current_title = "Output"
+    current_lines: list[tuple[str, str]] = []
+
+    for lt, text in output_lines:
+        if lt == "section":
+            if current_lines:
+                sections.append((current_title, current_lines))
+            current_title = strip_ansi(text).strip("─ \t")
+            current_lines = []
+        else:
+            current_lines.append((lt, text))
+
+    if current_lines:
+        sections.append((current_title, current_lines))
+
+    return [s for s in sections if s[1]]  # drop empty
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
     print("Capturing real interview output…")
-    raw_lines = capture_demo()
-    print(f"  Got {len(raw_lines)} lines")
+    raw = capture()
+    print(f"  {len(raw)} lines captured")
 
-    # Classify every raw line
-    classified = [classify(line) for line in raw_lines]
+    classified = [classify(line) for line in raw]
 
-    # Mark output-section lines (after "Interview complete") as "output" type
-    in_output = False
-    final: list[tuple[str, str]] = []
-    for lt, text in classified:
-        if "Interview complete" in text:
-            in_output = True
-        if in_output and lt in ("question",):
+    # Split at "Interview complete"
+    split = next(
+        (i for i, (_, t) in enumerate(classified) if "Interview complete" in t),
+        len(classified),
+    )
+    interview = classified[:split]
+    output_raw = classified[split:]
+
+    # Reclassify output content lines as "output" colour
+    output = []
+    for lt, text in output_raw:
+        if lt == "question":
             lt = "output"
-        final.append((lt, text))
-
-    print(f"  Processing {len(final)} lines (full interview + output)")
+        output.append((lt, text))
 
     font = _load_font(FONT_SIZE)
 
-    print("Rendering frames…")
-    frames, durations = build_frames(final, font)
-    print(f"  {len(frames)} frames")
+    print("Building interview frames…")
+    i_frames, i_durs = interview_frames(interview, font)
+    print(f"  {len(i_frames)} interview frames")
+
+    sections = split_output_sections(output)
+    print(f"  {len(sections)} output sections: {[s[0][:30] for s in sections]}")
+
+    print("Building output page frames…")
+    o_frames, o_durs = output_page_frames(sections, font)
+    print(f"  {len(o_frames)} output frames")
+
+    all_frames = i_frames + o_frames
+    all_durs   = i_durs   + o_durs
+
+    # Hold very last frame longer
+    if all_durs:
+        all_durs[-1] = 5000
 
     out = ROOT / "docs" / "media" / "demo.gif"
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    frames[0].save(
+    all_frames[0].save(
         out,
         save_all=True,
-        append_images=frames[1:],
-        duration=durations,
+        append_images=all_frames[1:],
+        duration=all_durs,
         loop=0,
         optimize=False,
     )
-    size_kb = out.stat().st_size // 1024
-    print(f"Saved {out} ({size_kb} KB, {len(frames)} frames)")
+    kb = out.stat().st_size // 1024
+    print(f"\nSaved {out}\n  {kb} KB · {len(all_frames)} frames")
 
 
 if __name__ == "__main__":
