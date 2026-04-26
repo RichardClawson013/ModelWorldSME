@@ -31,6 +31,37 @@ SYNONYMS: dict[str, list[str]] = {
     "delivery":     ["levering", "bezorging", "transport"],
 }
 
+# Domains that apply to most SME businesses.
+# Boosted unless the narrative contains logistics-specific signals.
+_CORE_SME_DOMAINS = {"D-FIN", "D-SAL", "D-KLA", "D-OPS", "D-HRM", "D-STR", "D-MKT"}
+
+# Signals that indicate a logistics/delivery business specifically.
+_LOGISTICS_SIGNALS = {
+    "shipping", "freight", "warehouse", "customs", "tariff", "cargo",
+    "shipment", "logistics", "dispatch", "fleet", "driver", "route",
+    "transport", "levering", "bezorging", "vracht", "douane",
+}
+
+# Signals that indicate an IT/legal business specifically.
+_ICT_SIGNALS    = {"server", "network", "software", "database", "cloud", "it department"}
+_LEGAL_SIGNALS  = {"compliance officer", "legal counsel", "regulatory", "litigation"}
+
+# Domain score boost for core SME domains (applied when no conflicting signal).
+_DOMAIN_BOOST = 2
+
+
+def _narrative_domain_hints(narrative: str) -> set[str]:
+    """Return which specialist domains are signalled by the narrative."""
+    lower = narrative.lower()
+    hints: set[str] = set()
+    if any(s in lower for s in _LOGISTICS_SIGNALS):
+        hints.add("D-DEL")
+    if any(s in lower for s in _ICT_SIGNALS):
+        hints.add("D-ICT")
+    if any(s in lower for s in _LEGAL_SIGNALS):
+        hints.add("D-LEG")
+    return hints
+
 
 def _expand_synonyms(text: str) -> str:
     lower = text.lower()
@@ -49,10 +80,19 @@ def extract_tasks_from_narrative(
 ) -> list[dict[str, Any]]:
     """Match free-text narrative against world model tasks.
 
+    Applies a domain relevance boost so that generic SME business language
+    (invoices, quotes, crew, clients) matches Finance/Sales/Ops tasks rather
+    than logistics or customs tasks that happen to mention the same words in
+    an unrelated context.
+
     Returns up to *top_n* tasks sorted by relevance score (highest first).
     """
     expanded = _expand_synonyms(narrative)
     words = [w for w in re.split(r"\W+", expanded) if len(w) >= 4]
+
+    # Determine which specialist domains the narrative actually signals.
+    specialist_domains = _narrative_domain_hints(narrative)
+    boost_core = not specialist_domains  # boost core SME domains when no specialist signal
 
     scores: dict[str, int] = {}
 
@@ -70,9 +110,17 @@ def extract_tasks_from_narrative(
 
         score = sum(1 for w in words if w in search_blob)
 
+        # Exact prefix match on Dutch name — strongest signal.
         name_prefix = task.get("name", "")[:10].lower()
         if name_prefix and name_prefix in narrative.lower():
             score += 3
+
+        # Domain relevance boost.
+        domain = task.get("domain", "")
+        if boost_core and domain in _CORE_SME_DOMAINS:
+            score += _DOMAIN_BOOST
+        elif specialist_domains and domain in specialist_domains:
+            score += _DOMAIN_BOOST
 
         if score > 0:
             scores[task["id"]] = score
