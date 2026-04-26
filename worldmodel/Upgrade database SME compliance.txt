@@ -1,0 +1,48 @@
+Upgrade database SME compliance
+
+You are a legal data engineer. Your task is to create a set of compliance tasks for a generic SME world model, covering Germany, the United States, and the European Union.
+
+You have the following source files available in the `compliance-raw/` folder:
+
+- Germany: Bundesgit Markdown laws (GewO, BGB, etc.), the DIN SPEC 91524 guide (PDF), the Beck compliance checklist (PDF)
+- United States: eCFR Title 13 (business), Title 26 (IRS), Title 29 (labor) as XML; SBA Compliance Guides spreadsheet; SBA License & Permit Guide; IRS Small Entity Compliance Guides
+- EU: EUR-Lex documents for GDPR, Late Payment Directive, CSRD, NIS2; the NIS2 SME Toolkit JSON; GDPR self-assessment templates (ALTO / DAAZ); the EU SME Factsheet
+
+For each jurisdiction, extract all recurring compliance obligations that apply to SMEs (5‑250 employees, turnover < €50 million). Create one JSON task object per obligation according to the following schema:
+
+{
+  "id": "T-COMP-XXXX",
+  "name": "short name (Dutch for NL tasks, English otherwise)",
+  "domain": "D-LEG",
+  "trigger": "what starts this obligation (date, event, threshold)",
+  "frequency": "yearly | quarterly | monthly | event_driven",
+  "scale_threshold": "e.g., 5 FTE | 25 FTE | all",
+  "jurisdiction": ["DE", "US", "EU"] (array),
+  "legal_source": {
+    "name": "law or directive name",
+    "url": "official URL",
+    "article": "specific article or section"
+  },
+  "deadline": "exact deadline or relative description",
+  "output": "what must be produced or filed",
+  "failure_mode": "what happens if not done",
+  "business_damage": "concrete fine or consequence (with upper limit if available)",
+  "guardrails": ["hard boundaries for an autonomous agent", "e.g., never file without human sign-off"],
+  "validation_method": "how to verify compliance",
+  "description": "full description of the obligation in plain language (Dutch if the task is NL-specific, English otherwise)"
+}
+
+Rules:
+- Only include obligations that are recurring (not one-time startup steps).
+- Prefer German tasks in German, US tasks in English, EU tasks in English.
+- Where penalties are specified (e.g., GDPR fines), express them concretely: "up to €10 million or 2% of annual turnover".
+- If a task applies only to certain sectors, note that in the `description`.
+- Avoid duplication: if an obligation exists in both EU and national law (e.g., GDPR vs. BDSG), keep only the national implementation but reference the EU directive in `legal_source`.
+- Ensure the output is valid JSON (array of objects).
+
+Now, process the source files systematically:
+1. First, create a preliminary list of obligations for each jurisdiction.
+2. Then, fill in the schema fields for each obligation.
+3. Finally, merge and deduplicate across jurisdictions.
+
+Output only the final JSON array, nothing else.

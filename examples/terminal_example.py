@@ -1,36 +1,35 @@
 """
 examples/terminal_example.py — Run a complete interview in your terminal.
 
-No API key needed for the matching — only if you want AI-generated questions.
+No API key needed — matching is fully deterministic.
 Run: python examples/terminal_example.py
 """
 
-import asyncio
-import json
 from pathlib import Path
-
 from model_world_sme import InterviewFlow
-from model_world_sme.orchestrators import TerminalOrchestrator
 
 
-async def main() -> None:
+def main() -> None:
     worldmodel = Path(__file__).parent.parent / "worldmodel" / "sme_worldmodel_v1.5.json"
-
     flow = InterviewFlow(worldmodel_path=worldmodel)
-    orchestrator = TerminalOrchestrator()
 
     print("=" * 60)
     print("ModelWorldSME — Business Elicitation Interview")
     print("=" * 60)
 
-    async for question in flow.questions():
-        answer = await orchestrator.send(question)
-        flow.answer(answer)
+    question = flow.next()
+    while question:
+        print(f"\n{question}")
+        answer = input("> ").strip()
+        if not answer:
+            continue
+        question = flow.next(answer)
+
+    print("\n" + "=" * 60)
+    print("Interview complete. Generating outputs...")
 
     result = flow.export()
-    await orchestrator.on_complete(result)
 
-    # Save outputs
     out_dir = Path("output")
     out_dir.mkdir(exist_ok=True)
 
@@ -39,8 +38,12 @@ async def main() -> None:
     (out_dir / f"agent_config_{agent_name}.yaml").write_text(result.agent_config_yaml, encoding="utf-8")
     (out_dir / f"SOUL_{agent_name}.md").write_text(result.soul_md, encoding="utf-8")
 
-    print(f"\nSaved to output/")
+    print(f"  Tasks confirmed: {result.summary.get('total_active', 0)}")
+    print(f"  Agent name:      {agent_name}")
+    print(f"  Saved to:        output/")
+    if result.warnings:
+        print(f"  Warnings:        {len(result.warnings)} (see worldmodel JSON)")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

@@ -1,12 +1,16 @@
 """
 interview/flow.py — Conversational interview state machine.
 
-One question at a time. Human language only. Model names never surface.
-Matching happens invisibly in the background.
+Turn-based: call next(answer) to advance the interview one step.
+The first call takes no answer. Returns None when complete.
+
+This replaces the previous async-generator approach, which was fundamentally
+incompatible with dynamic interviews: a generator cannot adapt to answers it
+has not yet received.
 
 Scientific basis:
-  CDM    — Klein, 1989
-  Laddering — Kelly, 1955
+  CDM              — Klein, 1989
+  Laddering        — Kelly, 1955
   Exception probing — Beyer & Holtzblatt, 1997
 """
 
@@ -16,9 +20,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..core.matching import extract_tasks_from_narrative, suggest_related_tasks
-from ..core.cdm import CDM_PROBES
-from ..core.laddering import get_laddering_question, get_exception_question
+from ..core.matching import extract_tasks_from_narrative
+from ..core.cdm import make_cdm_probes
+from ..core.laddering import make_laddering_question, make_exception_question
 from ..core.autonomy import parse_autonomy_answer, parse_threshold
 from ..core.export import (
     apply_task_insights,
@@ -28,8 +32,9 @@ from ..core.export import (
     export_worldmodel_json,
     export_agent_config_yaml,
     export_soul_md,
+    DOMAIN_LABELS,
 )
-from .questions import OPENING_QUESTION, AGENT_NAME_QUESTION, DOMAIN_QUESTIONS
+from .questions import AGENT_NAME_QUESTION, make_domain_question, _DOMAIN_FOLLOWUPS
 
 
 @dataclass
@@ -47,9 +52,10 @@ class InterviewFlow:
 
     Usage:
         flow = InterviewFlow(worldmodel_path="worldmodel/sme_worldmodel_v1.5.json")
-        async for question in flow.questions():
-            answer = await orchestrator.send(question)
-            flow.answer(answer)
+        question = flow.next()           # first question, no answer yet
+        while question:
+            answer = input(f"{question}\\n> ")
+            question = flow.next(answer)
         result = flow.export()
     """
 
@@ -61,58 +67,42 @@ class InterviewFlow:
         self._confirmed_ids: set[str] = set()
         self._insights: dict[str, dict[str, Any]] = {}
         self._narrative_parts: list[str] = []
-        self._phase = 0
-        self._cdm_index = 0
-        self._laddering_tasks: list[dict[str, Any]] = []
-        self._laddering_index = 0
-        self._laddering_depth = 0
-        self._done = False
-
-        # Collected meta
         self._meta: dict[str, Any] = {}
 
-    # ── Public interface ──────────────────────────────────────────
+        # Phase
+        self._phase = "intro"
 
-    async def questions(self):
-        """Yield (question_text) one at a time. Call .answer(text) after each."""
-        # Phase 0 — Company intro
-        yield "Tell me about your business. What do you do, and what does a typical day look like for you?"
+        # CDM state
+        self._incident = ""
+        self._cdm_probes: list[str] = []
+        self._cdm_index = 0
 
-        # Phase 0b — Agent name (permanent — explain this clearly)
-        yield AGENT_NAME_QUESTION
+        # Domain confirm state — list of (domain_code, [task_name, ...])
+        self._domain_queue: list[tuple[str, list[str]]] = []
 
-        # Phase 1 — Critical incident (CDM)
-        yield "Tell me about a day that didn't go well — not necessarily the worst, just a day when things piled up or something slipped."
+        # Laddering state
+        self._ladder_queue: list[dict[str, Any]] = []
+        self._ladder_task: dict[str, Any] | None = None
+        self._ladder_depth = 0
+        self._ladder_last_answer = ""
+        self._in_exception = False
 
-        for probe in CDM_PROBES:
-            yield probe
+    # ── Public interface ───────────────────────────────────────────
 
-        # Phase 2 — Domain confirmation (silent matching already done)
-        for q in self._get_domain_questions():
-            yield q
+    def next(self, answer: str | None = None) -> str | None:
+        """
+        Feed the previous answer (or None for the very first call).
+        Returns the next question, or None when the interview is complete.
+        """
+        if answer is not None:
+            self._ingest(answer)
+        return self._emit()
 
-        # Phase 3 — Laddering (top risk tasks)
-        for q in self._get_laddering_questions():
-            yield q
-
-        # Phase 4 — Custom tasks
-        yield "Is there anything you do regularly that we haven't talked about yet?"
-
-        # Phase 5 — Autonomy summary
-        yield (
-            "Last question: if your assistant could handle things on its own — "
-            "what would you want it to do without asking, and what should it always check with you first?"
-        )
-
-        self._done = True
-
-    def answer(self, text: str) -> None:
-        """Feed a user answer into the interview engine."""
-        self._narrative_parts.append(text)
-        self._process_answer(text)
+    @property
+    def done(self) -> bool:
+        return self._phase == "done"
 
     def export(self) -> InterviewResult:
-        """Build and return all three output artifacts."""
         from datetime import date
         self._model["_meta"] = {
             **self._meta,
@@ -120,7 +110,6 @@ class InterviewFlow:
             "tool_version": "ModelWorldSME-1.0",
             "method": "CDM+Laddering+ExceptionProbing",
         }
-
         return InterviewResult(
             worldmodel_json=export_worldmodel_json(self._model, self._confirmed_ids),
             agent_config_yaml=export_agent_config_yaml(self._model, self._confirmed_ids),
@@ -129,102 +118,201 @@ class InterviewFlow:
             warnings=check_consistency(self._model),
         )
 
-    # ── Internal ─────────────────────────────────────────────────
+    # ── Answer processing ─────────────────────────────────────────
 
-    def _process_answer(self, text: str) -> None:
-        if self._phase == 0:
-            self._meta["description"] = text
-            self._run_matching(text)
-            self._phase = 1
-        elif self._phase == 1:
-            # Agent name
-            name = text.strip().split()[0] if text.strip() else "assistant"
+    def _ingest(self, answer: str) -> None:
+        """Process an incoming answer and advance the phase if this answer completes it."""
+        self._narrative_parts.append(answer)
+        self._run_matching()
+
+        if self._phase == "intro":
+            self._meta["description"] = answer
+            self._phase = "agent_name"
+
+        elif self._phase == "agent_name":
+            name = answer.strip().split()[0] if answer.strip() else "assistant"
             self._meta["agent_name"] = name
-            self._phase = 2
-        elif self._phase == 2:
-            # CDM narrative
-            self._run_matching(text)
-            self._cdm_index += 1
-            if self._cdm_index >= len(CDM_PROBES):
-                self._phase = 3
-                self._prepare_laddering()
-        elif self._phase == 3:
-            # Domain confirmations — yes/no parsing
-            lower = text.lower()
-            if any(w in lower for w in ("yes", "correct", "right", "indeed", "yep", "sure")):
-                pass  # already confirmed via matching
-            elif any(w in lower for w in ("no", "not", "never", "nope")):
-                pass  # could remove from confirmed_ids — keep simple for now
-            self._run_matching(text)
-        elif self._phase == 4:
-            # Laddering answers
-            self._store_laddering_answer(text)
-        elif self._phase == 5:
-            # Custom tasks
-            if len(text.strip()) > 5:
-                add_custom_task(self._model, text.strip())
-        elif self._phase == 6:
-            # Autonomy summary
-            autonomy = parse_autonomy_answer(text)
-            threshold = parse_threshold(text)
-            for tid in self._confirmed_ids:
-                ins = self._insights.setdefault(tid, {})
-                if not ins.get("autonomy"):
-                    ins["autonomy"] = autonomy
-                if threshold and not ins.get("threshold"):
-                    ins["threshold"] = threshold
+            self._phase = "cdm_incident"
 
-    def _run_matching(self, text: str) -> None:
+        elif self._phase == "cdm_incident":
+            self._incident = answer
+            self._cdm_probes = make_cdm_probes(answer)
+            self._cdm_index = 0
+            self._phase = "cdm_probes"
+
+        elif self._phase == "cdm_probes":
+            self._cdm_index += 1
+            if self._cdm_index >= len(self._cdm_probes):
+                self._prepare_domain_queue()
+                if self._domain_queue:
+                    self._phase = "domain_confirm"
+                else:
+                    self._enter_laddering_or_custom()
+
+        elif self._phase == "domain_confirm":
+            if self._domain_queue:
+                self._domain_queue.pop(0)
+            if not self._domain_queue:
+                self._enter_laddering_or_custom()
+
+        elif self._phase == "laddering":
+            self._process_ladder_answer(answer)
+
+        elif self._phase == "custom":
+            if len(answer.strip()) > 5:
+                add_custom_task(self._model, answer.strip())
+            self._phase = "autonomy"
+
+        elif self._phase == "autonomy":
+            self._process_global_autonomy(answer)
+            self._phase = "done"
+
+    # ── Question generation ───────────────────────────────────────
+
+    def _emit(self) -> str | None:
+        """Return the next question for the current phase."""
+        if self._phase == "intro":
+            return (
+                "Tell me about your business. "
+                "What do you do, and what does a typical day look like for you?"
+            )
+
+        if self._phase == "agent_name":
+            return AGENT_NAME_QUESTION
+
+        if self._phase == "cdm_incident":
+            return (
+                "Tell me about a day that didn't go well — not necessarily the worst, "
+                "just a day when things piled up or something slipped through."
+            )
+
+        if self._phase == "cdm_probes":
+            if self._cdm_index < len(self._cdm_probes):
+                return self._cdm_probes[self._cdm_index]
+            return None
+
+        if self._phase == "domain_confirm":
+            if self._domain_queue:
+                domain, task_names = self._domain_queue[0]
+                return make_domain_question(domain, task_names)
+            return None
+
+        if self._phase == "laddering":
+            return self._make_ladder_question()
+
+        if self._phase == "custom":
+            return "Is there anything you do regularly that we haven't talked about yet?"
+
+        if self._phase == "autonomy":
+            return (
+                "Last question: if your assistant could handle things on its own — "
+                "what would you want it to do without asking, "
+                "and what should it always check with you first?"
+            )
+
+        return None  # done
+
+    # ── Matching ──────────────────────────────────────────────────
+
+    def _run_matching(self) -> None:
         full = " ".join(self._narrative_parts)
         matched = extract_tasks_from_narrative(full, self._model.get("tasks", []))
         for t in matched:
             self._confirmed_ids.add(t["id"])
 
-    def _get_domain_questions(self) -> list[str]:
-        from ..core.export import DOMAIN_LABELS
-        active_domains = {
-            t.get("domain", "")
-            for t in self._model.get("tasks", [])
-            if t["id"] in self._confirmed_ids
-        }
-        questions = []
-        for domain, label in DOMAIN_LABELS.items():
-            if domain in active_domains and domain in DOMAIN_QUESTIONS:
-                questions.append(DOMAIN_QUESTIONS[domain])
-        return questions or ["You mentioned several areas of your business. Which of these takes the most of your time?"]
+    # ── Phase helpers ─────────────────────────────────────────────
 
-    def _prepare_laddering(self) -> None:
+    def _enter_laddering_or_custom(self) -> None:
+        self._prepare_ladder_queue()
+        if self._ladder_queue:
+            self._phase = "laddering"
+            self._start_next_ladder_task()
+        else:
+            self._phase = "custom"
+
+    def _prepare_domain_queue(self) -> None:
         task_map = {t["id"]: t for t in self._model.get("tasks", [])}
-        priority = ["critical", "high", "medium", "low"]
-        self._laddering_tasks = sorted(
-            [task_map[tid] for tid in self._confirmed_ids if tid in task_map],
-            key=lambda t: priority.index(t.get("failure", {}).get("risk_level", "low"))
-            if t.get("failure", {}).get("risk_level", "low") in priority else 3
+        domains: dict[str, list[str]] = {}
+        for tid in self._confirmed_ids:
+            task = task_map.get(tid)
+            if not task:
+                continue
+            domain = task.get("domain", "")
+            name = task.get("name_en") or task.get("name", "")
+            if domain and name:
+                domains.setdefault(domain, []).append(name)
+        # Only confirm domains where we found 2+ tasks (reduces noise) and
+        # that have a defined follow-up question
+        self._domain_queue = [
+            (domain, names)
+            for domain, names in domains.items()
+            if len(names) >= 2 and domain in _DOMAIN_FOLLOWUPS
+        ][:4]
+
+    def _prepare_ladder_queue(self) -> None:
+        task_map = {t["id"]: t for t in self._model.get("tasks", [])}
+        risk_order = ["critical", "high", "medium", "low"]
+        candidates = [task_map[tid] for tid in self._confirmed_ids if tid in task_map]
+        self._ladder_queue = sorted(
+            candidates,
+            key=lambda t: (
+                risk_order.index(t.get("failure", {}).get("risk_level", "low"))
+                if t.get("failure", {}).get("risk_level", "low") in risk_order
+                else 3
+            ),
         )[:3]
-        self._phase = 4
 
-    def _get_laddering_questions(self) -> list[str]:
-        questions = []
-        for task in self._laddering_tasks:
-            name = task.get("name_en") or task.get("name", task["id"])
-            for depth in range(3):
-                q = get_laddering_question(name, depth)
-                if q:
-                    questions.append(q)
-            questions.append(get_exception_question(name))
-        return questions
+    def _start_next_ladder_task(self) -> None:
+        self._ladder_task = self._ladder_queue.pop(0)
+        self._ladder_depth = 0
+        self._ladder_last_answer = ""
+        self._in_exception = False
 
-    def _store_laddering_answer(self, text: str) -> None:
-        if not self._laddering_tasks:
+    def _make_ladder_question(self) -> str | None:
+        if not self._ladder_task:
+            return None
+        task_name = self._ladder_task.get("name_en") or self._ladder_task.get("name", "")
+        if self._in_exception:
+            return make_exception_question(task_name, self._ladder_last_answer or None)
+        return make_laddering_question(
+            task_name,
+            self._ladder_depth,
+            self._ladder_last_answer or None,
+        )
+
+    def _process_ladder_answer(self, answer: str) -> None:
+        if not self._ladder_task:
+            self._phase = "custom"
             return
-        task = self._laddering_tasks[self._laddering_index]
-        ins = self._insights.setdefault(task["id"], {})
-        ins.setdefault("laddering", []).append(text)
-        self._laddering_depth += 1
-        steps_per_task = 4  # 3 laddering + 1 exception
-        if self._laddering_depth >= steps_per_task:
+
+        ins = self._insights.setdefault(self._ladder_task["id"], {})
+
+        if self._in_exception:
+            ins["exception"] = answer
+            apply_task_insights(self._ladder_task, ins)
+            if self._ladder_queue:
+                self._start_next_ladder_task()
+            else:
+                self._phase = "custom"
+        else:
+            ins.setdefault("laddering", []).append(answer)
+            self._ladder_last_answer = answer
+            self._ladder_depth += 1
+            if self._ladder_depth >= 3:
+                self._in_exception = True
+
+    def _process_global_autonomy(self, answer: str) -> None:
+        """Apply a global autonomy answer to all confirmed tasks that have no specific level set."""
+        autonomy = parse_autonomy_answer(answer)
+        threshold = parse_threshold(answer)
+        task_map = {t["id"]: t for t in self._model.get("tasks", [])}
+        for tid in self._confirmed_ids:
+            task = task_map.get(tid)
+            if not task:
+                continue
+            ins = self._insights.setdefault(tid, {})
+            if not ins.get("autonomy"):
+                ins["autonomy"] = autonomy
+            if threshold and not ins.get("threshold"):
+                ins["threshold"] = threshold
             apply_task_insights(task, ins)
-            self._laddering_depth = 0
-            self._laddering_index += 1
-            if self._laddering_index >= len(self._laddering_tasks):
-                self._phase = 5

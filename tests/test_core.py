@@ -1,6 +1,6 @@
 """
 tests/test_core.py — Smoke tests for ModelWorldSME core.
-Run: python -m pytest tests/ or python tests/test_core.py
+Run: python tests/test_core.py
 """
 
 import sys
@@ -10,9 +10,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from model_world_sme.core import (
     extract_tasks_from_narrative,
     suggest_related_tasks,
-    get_cdm_probe,
-    get_laddering_question,
-    get_exception_question,
+    make_cdm_probes,
+    make_laddering_question,
+    make_exception_question,
     parse_autonomy_answer,
     parse_threshold,
     add_custom_task,
@@ -78,17 +78,30 @@ suggestions = suggest_related_tasks(["T-0001"], MINI_MODEL["tasks"])
 assert_ok("suggests upstream/downstream", len(suggestions) > 0)
 assert_ok("does not include input task", all(t["id"] != "T-0001" for t in suggestions))
 
-print("\nCDM probes")
-assert_ok("probe 0 is string", isinstance(get_cdm_probe(0), str))
-assert_ok("out of range returns None", get_cdm_probe(999) is None)
+print("\nCDM probes — dynamic")
+probes = make_cdm_probes("had a client call about a missing invoice last Tuesday")
+assert_ok("returns 5 probes", len(probes) == 5)
+assert_ok("probe 0 references incident phrase", "invoice" in probes[0] or "client" in probes[0] or "call" in probes[0])
+assert_ok("all probes are non-empty strings", all(isinstance(p, str) and len(p) > 10 for p in probes))
+probes_generic = make_cdm_probes("")
+assert_ok("handles empty incident gracefully", len(probes_generic) == 5)
 
-print("\nladdering")
-assert_ok("depth 0 contains task name", "Create invoice" in (get_laddering_question("Create invoice", 0) or ""))
-assert_ok("depth 2 exists", get_laddering_question("X", 2) is not None)
-assert_ok("depth 3 is None", get_laddering_question("X", 3) is None)
+print("\nladdering — dynamic")
+q0 = make_laddering_question("Create invoice", 0)
+assert_ok("depth 0 contains task name", "Create invoice" in q0)
+q1 = make_laddering_question("Create invoice", 1, "it keeps cash flow healthy")
+assert_ok("depth 1 uses prev answer", "cash flow" in q1)
+q2 = make_laddering_question("Create invoice", 2, "cash flow is always tight in January")
+assert_ok("depth 2 uses prev answer", "cash flow" in q2 or "january" in q2.lower())
+assert_ok("depth 3 returns None", make_laddering_question("X", 3) is None)
+assert_ok("depth 1 without prev answer still returns string", isinstance(make_laddering_question("X", 1), str))
 
-print("\nexception probing")
-assert_ok("contains task name", "Write quote" in get_exception_question("Write quote"))
+print("\nexception probing — dynamic")
+eq = make_exception_question("Write quote", "clients expect a quick turnaround")
+assert_ok("contains task name", "Write quote" in eq)
+assert_ok("references prev answer phrase", "turnaround" in eq)
+eq_no_context = make_exception_question("Write quote")
+assert_ok("works without prev answer", "Write quote" in eq_no_context)
 
 print("\nparse_autonomy_answer")
 assert_ok("'independently' → autonomous", parse_autonomy_answer("it can handle this independently") == "autonomous")
