@@ -4,8 +4,14 @@ core/export.py — Export personalized world model to JSON, YAML, and SOUL.md.
 
 from __future__ import annotations
 import json
+import re
 from datetime import date
 from typing import Any
+
+
+def _clean_name(name: str) -> str:
+    """Strip disambiguation suffixes like ' (2)' from task names."""
+    return re.sub(r"\s*\(\d+\)\s*$", "", name).strip()
 
 DOMAIN_LABELS: dict[str, str] = {
     "D-FIN": "Finance & Administration",
@@ -168,7 +174,7 @@ def export_agent_config_yaml(model: dict[str, Any], confirmed_ids: set[str]) -> 
 
     for level in ("autonomous", "notify", "ask_first", "human_only"):
         tasks_at_level = [
-            t.get("name", t["id"])
+            _clean_name(t.get("name", t["id"]))
             for t in confirmed
             if t.get("agent_profile", {}).get("automatable") == level
         ]
@@ -181,7 +187,7 @@ def export_agent_config_yaml(model: dict[str, Any], confirmed_ids: set[str]) -> 
     for t in confirmed:
         triggers = t.get("agent_profile", {}).get("escalation_triggers", [])
         for trigger in triggers:
-            lines.append(f'  - task: "{t.get("name", t["id"])}"')
+            lines.append(f'  - task: "{_clean_name(t.get("name", t["id"]))}"')
             lines.append(f'    trigger: "{trigger}"')
 
     lines += ["", "domains_active:"]

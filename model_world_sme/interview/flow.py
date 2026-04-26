@@ -162,8 +162,10 @@ class InterviewFlow:
             self._process_ladder_answer(answer)
 
         elif self._phase == "custom":
-            if len(answer.strip()) > 5:
-                add_custom_task(self._model, answer.strip())
+            ans = answer.strip()
+            _neg = ("no", "nee", "nope", "nothing", "none", "not really", "that's all", "i think we")
+            if len(ans) > 5 and not ans.lower().startswith(_neg):
+                add_custom_task(self._model, ans)
             self._phase = "autonomy"
 
         elif self._phase == "autonomy":

@@ -169,12 +169,58 @@ def main() -> None:
 
     print()
     print(BOLD + "=" * 60 + RESET)
+    print(BOLD + "Interview complete. Generating outputs..." + RESET)
+    print(BOLD + "=" * 60 + RESET)
+
     result = flow.export()
-    agent = result.summary.get("agent_name", "assistant")
-    total = result.summary.get("total_active", 0)
+    agent  = result.summary.get("agent_name", "assistant")
+    total  = result.summary.get("total_active", 0)
+
+    print()
     print(f"  Tasks confirmed: {BOLD}{total}{RESET}")
     print(f"  Agent name:      {BOLD}{agent}{RESET}")
-    print(f"  Outputs:         worldmodel · agent_config · SOUL · report")
+
+    # ── agent_config.yaml snippet ─────────────────────────────────────────
+    print()
+    print(BOLD + f"── agent_config_{agent}.yaml ─────────────────────" + RESET)
+    yaml_lines = result.agent_config_yaml.splitlines()
+    for line in yaml_lines[:28]:
+        print(CYAN + line + RESET)
+
+    # ── worldmodel.json snippet — pick a task with laddering answers ─────────
+    import json as _json
+    wm = _json.loads(result.worldmodel_json)
+    print()
+    print(BOLD + f"── worldmodel_{agent}.json — laddering task example ─" + RESET)
+    tasks = wm.get("tasks", [])
+    task_with_ladder = next(
+        (t for t in tasks if t.get("_custom", {}).get("laddering_answers")),
+        tasks[0] if tasks else None,
+    )
+    if task_with_ladder:
+        t = task_with_ladder
+        snippet = {
+            "id":     t.get("id"),
+            "name":   t.get("name"),
+            "domain": t.get("domain"),
+            "agent_profile": t.get("agent_profile", {}),
+            "laddering": t.get("_custom", {}).get("laddering_answers", []),
+            "exception": t.get("_custom", {}).get("exception", ""),
+        }
+        for line in _json.dumps(snippet, indent=2, ensure_ascii=False).splitlines():
+            print(CYAN + line + RESET)
+
+    # ── SOUL.md snippet ───────────────────────────────────────────────────
+    print()
+    print(BOLD + f"── SOUL_{agent}.md ────────────────────────────────" + RESET)
+    soul_lines = result.soul_md.splitlines()
+    for line in soul_lines[:14]:
+        print(CYAN + line + RESET)
+
+    print()
+    print(BOLD + "=" * 60 + RESET)
+    print(BOLD + f"  Saved: worldmodel_{agent}.json · agent_config_{agent}.yaml" + RESET)
+    print(BOLD + f"         SOUL_{agent}.md · report_{agent}.html" + RESET)
     print(BOLD + "=" * 60 + RESET)
 
 
