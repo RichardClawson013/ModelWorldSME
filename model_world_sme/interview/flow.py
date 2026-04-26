@@ -241,7 +241,7 @@ class InterviewFlow:
             if not task:
                 continue
             domain = task.get("domain", "")
-            name = task.get("name_en") or task.get("name", "")
+            name = self._display_name(task)
             if domain and name:
                 domains.setdefault(domain, []).append(name)
         # Only confirm domains where we found 2+ tasks (reduces noise) and
@@ -271,10 +271,26 @@ class InterviewFlow:
         self._ladder_last_answer = ""
         self._in_exception = False
 
+    @staticmethod
+    def _display_name(task: dict) -> str:
+        """Return a short readable task name for use in interview questions."""
+        import re
+        name_en = task.get("name_en", "")
+        name_nl = re.sub(r"\s*\(\d+\)\s*$", "", task.get("name", "")).strip()
+        # O*NET descriptions can be full sentences — truncate at 50 chars on a word boundary
+        if name_en and len(name_en) <= 50:
+            return name_en
+        if name_nl and len(name_nl) <= 40:
+            return name_nl
+        if name_en:
+            words = name_en[:50].rsplit(" ", 1)
+            return words[0].rstrip(".,;") + "…"
+        return name_nl or "this task"
+
     def _make_ladder_question(self) -> str | None:
         if not self._ladder_task:
             return None
-        task_name = self._ladder_task.get("name_en") or self._ladder_task.get("name", "")
+        task_name = self._display_name(self._ladder_task)
         if self._in_exception:
             return make_exception_question(task_name, self._ladder_last_answer or None)
         return make_laddering_question(
