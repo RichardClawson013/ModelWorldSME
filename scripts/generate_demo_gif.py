@@ -49,13 +49,13 @@ DIM     = (100, 100, 110)
 # ── Canvas ────────────────────────────────────────────────────────────────────
 
 W          = 900
-H          = 540
-FONT_SIZE  = 14
+H          = 860
+FONT_SIZE  = 15
 PAD_X      = 24
 PAD_TOP    = 20
-LINE_H     = FONT_SIZE + 8
-WRAP_W     = 74    # chars per line at font size 14 on 900px
-MAX_SCROLL = (H - PAD_TOP * 2) // LINE_H   # lines that fit
+LINE_H     = FONT_SIZE + 9
+WRAP_W     = 70
+MAX_SCROLL = (H - PAD_TOP * 2) // LINE_H   # lines that fit in full canvas
 
 
 # ── ANSI ──────────────────────────────────────────────────────────────────────
@@ -140,11 +140,12 @@ def wrap(lt: str, text: str) -> list[tuple[str, str]]:
 # ── Build scrolling interview frames ──────────────────────────────────────────
 
 def interview_frames(lines: list[tuple[str, str]], font) -> tuple[list, list[int]]:
-    """One frame per logical line, scrolling window."""
+    """One frame per Q/A pair — show complete question then complete answer."""
     frames, durs = [], []
     visible: list[tuple[str, str]] = []
     skip_blank = True
 
+    # Group into logical blocks: one block = all sub-lines of one logical line
     for lt, text in lines:
         if lt == "blank":
             if not skip_blank:
@@ -155,11 +156,13 @@ def interview_frames(lines: list[tuple[str, str]], font) -> tuple[list, list[int
         for sl, st in wrap(lt, text):
             visible.append((sl, st))
 
-        window = visible[-MAX_SCROLL:]
-        img, draw = new_frame(font)
-        draw_lines_font(draw, font, window)
-        frames.append(quantize(img))
-        durs.append({"question": 220, "answer": 170, "header": 400, "section": 280}.get(lt, 150))
+        # Only emit a frame after questions and answers (not mid-wrap)
+        if lt in ("question", "answer", "header"):
+            window = visible[-MAX_SCROLL:]
+            img, draw = new_frame(font)
+            draw_lines_font(draw, font, window)
+            frames.append(quantize(img))
+            durs.append({"question": 250, "answer": 180, "header": 500}.get(lt, 200))
 
     return frames, durs
 
