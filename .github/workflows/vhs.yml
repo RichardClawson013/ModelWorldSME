@@ -1,4 +1,4 @@
-name: Generate demo GIF
+name: Generate demo SVG
 
 on:
   push:
@@ -6,10 +6,11 @@ on:
     paths:
       - examples/demo_run.py
       - demo.tape
+      - .github/workflows/vhs.yml
   workflow_dispatch:
 
 jobs:
-  vhs:
+  demo:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,29 +21,23 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install package
-        run: pip install -e . -q
-
-      - name: Install VHS via Charmbracelet apt repo
+      - name: Install dependencies
         run: |
-          sudo mkdir -p /etc/apt/keyrings
-          curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-          echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
-            | sudo tee /etc/apt/sources.list.d/charm.list
-          sudo apt-get update -qq
-          sudo apt-get install -y vhs ffmpeg
+          pip install -e . -q
+          pip install termtosvg -q
 
-      - name: Generate GIF
+      - name: Record demo as animated SVG
         run: |
-          Xvfb :99 -screen 0 1920x1080x24 &
-          sleep 2
-          export DISPLAY=:99
           mkdir -p docs
-          vhs demo.tape
-        timeout-minutes: 3
+          termtosvg docs/demo.svg \
+            --command "python examples/demo_run.py" \
+            --template window_frame \
+            --width 100 \
+            --min-frame-duration 0.05
+        timeout-minutes: 2
 
-      - name: Commit GIF
+      - name: Commit SVG
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: update demo GIF [skip ci]"
-          file_pattern: docs/demo.gif
+          commit_message: "chore: update demo SVG [skip ci]"
+          file_pattern: docs/demo.svg
