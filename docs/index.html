@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="One interview. Three outputs. Give your AI agent a world it can actually operate in." />
-  <title>ModelWorldSME — Business Elicitation Interview</title>
+  <meta name="description" content="Your agent doesn't know your business yet. One conversation fixes that. ModelWorldSME turns what's in your head into files your agent can actually use." />
+  <title>ModelWorldSME — Tell us about your business. We'll build the rest.</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -189,13 +189,14 @@
 <!-- Loading overlay -->
 <div id="loading">
   <div class="spinner"></div>
-  <p>Loading knowledge base (2,986 tasks)…</p>
+  <p>Getting ready (2,986 tasks, 16,281 connections)…</p>
 </div>
 
 <!-- Header -->
 <header>
   <div class="logo">Model<span>World</span>SME</div>
-  <span class="badge">Live demo · no API key needed</span>
+  <p style="font-size:0.75rem;color:var(--muted);margin-top:3px;">Your business, mapped. Your agent, grounded.</p>
+  <span class="badge">Live interview · runs in your browser · no signup</span>
 </header>
 
 <!-- Progress -->
@@ -207,7 +208,7 @@
 
 <!-- Results (shown at end) -->
 <div id="results">
-  <div class="results-title">Interview complete</div>
+  <div class="results-title">Done. Here's what we built from your conversation.</div>
   <div class="results-sub" id="results-sub"></div>
   <div class="stat-row" id="stats"></div>
   <div class="dl-grid" id="downloads"></div>
@@ -1053,12 +1054,12 @@ function finishInterview() {
   // Stats
   const statsEl = document.getElementById('stats');
   statsEl.innerHTML = `
-    <div class="stat"><div class="stat-num">${result.total_active}</div><div class="stat-label">Tasks confirmed</div></div>
-    <div class="stat"><div class="stat-num">${result.agent_name}</div><div class="stat-label">Agent name</div></div>
+    <div class="stat"><div class="stat-num">${result.total_active}</div><div class="stat-label">Tasks mapped to your business</div></div>
+    <div class="stat"><div class="stat-num">${result.agent_name}</div><div class="stat-label">Your agent's name</div></div>
   `;
 
   document.getElementById('results-sub').textContent =
-    `Interview complete. Four files ready to download.`;
+    `Done. Here's what we built from your conversation.`;
 
   // Downloads
   const dlGrid = document.getElementById('downloads');
@@ -1085,7 +1086,7 @@ function finishInterview() {
       mime: 'text/markdown',
       icon: '✨',
       label: 'SOUL',
-      desc: 'Agent identity (Markdown)',
+      desc: 'Who the agent is — 12 sections from your own words (Markdown)',
     },
     {
       name: `report_${result.agent_name}.html`,
