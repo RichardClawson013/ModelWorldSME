@@ -9,6 +9,8 @@
 
 **[Try it live →](https://richardclawson013.github.io/ModelWorldSME/)**
 
+![ModelWorldSME demo](docs/demo.gif)
+
 ---
 
 ## The problem

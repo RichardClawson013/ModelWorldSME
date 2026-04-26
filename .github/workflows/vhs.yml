@@ -1,0 +1,35 @@
+name: Generate demo GIF
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - examples/demo_run.py
+      - demo.tape
+  workflow_dispatch:
+
+jobs:
+  vhs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: pip install -e . -q
+
+      - name: Generate GIF with VHS
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: demo.tape
+
+      - name: Commit GIF
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update demo GIF [skip ci]"
+          file_pattern: docs/demo.gif
