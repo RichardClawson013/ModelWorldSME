@@ -5,11 +5,37 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/pypi/pyversions/model-world-sme)](https://pypi.org/project/model-world-sme/)
 
-> One conversational interview. Three outputs. Any provider. Any model. Any orchestrator.
+> Interview a business owner. Build a world model. Give their agent something to actually work with.
 
-ModelWorldSME is an open-source library that turns a natural conversation with a business owner into a structured, personalized **world model** their AI agent can operate in.
+**[Try it live →](https://richardclawson013.github.io/ModelWorldSME/)**
 
-No task grids. No checkboxes. No jargon. One question at a time — the matching happens invisibly in the background.
+---
+
+## The problem
+
+O*NET describes 1,400 occupations. ESCO maps 3,000 European roles. Osterwalder's Business Model Canvas fits a company onto one page. None of them tell you what the invoice looks like for *this* painting company, why it has to go out the same day the job finishes, or what happened the one time it didn't.
+
+That knowledge lives inside the person who built the business. It is procedural, tacit, and invisible to any model trained on general text.
+
+LeCun (2022) argues that intelligent agents need a *world model* — an internal representation of how things work, how they connect, and what happens when they go wrong. An agent operating without one is guessing. It may guess well most of the time. It will fail exactly when the consequences are highest.
+
+ModelWorldSME builds that world model from a single conversation.
+
+---
+
+## How it works
+
+One interview. No task grids. No checkboxes. No jargon.
+
+The method is grounded in forty years of cognitive task analysis research:
+
+| Technique | Source | What it surfaces |
+|---|---|---|
+| **Critical Decision Method** | Klein, 1989 | Tacit expertise through incident reconstruction |
+| **Laddering** | Kelly, 1955 | Three layers per task — practice → consequence → value |
+| **Exception probing** | Beyer & Holtzblatt, 1997 | Failure conditions from lived experience |
+
+Matching runs silently in the background. The owner never sees a task ID.
 
 ---
 
@@ -98,9 +124,10 @@ Interview complete. Generating outputs...
 ```
 Interview (conversation)
         ↓
-worldmodel_Nova.json      ← what the business does (2,928 task knowledge base)
+worldmodel_Nova.json      ← what the business does (personalized from 2,986-task knowledge base)
 agent_config_Nova.yaml    ← how Nova behaves in that world
 SOUL_Nova.md              ← who Nova is
+report_Nova.html          ← risk, autonomy, and opportunity analysis (print to PDF)
 ```
 
 The agent name chosen during the interview is **permanent** — it appears in all output files and in every message the agent sends on the owner's behalf.
@@ -138,6 +165,7 @@ while question:
 
 result = flow.export()
 print(result.agent_config_yaml)
+# result.html_report  ← write to file and open in browser to print PDF
 ```
 
 Or run the terminal example directly:
@@ -148,9 +176,7 @@ python examples/terminal_example.py
 
 ---
 
-## How the interview works
-
-The interview is **turn-based**: every question is built from the previous answer. There are no pre-written scripts — the CDM probes reference the incident the owner described, laddering follows their own words, and exception probing surfaces failure conditions from lived experience.
+## Interview phases
 
 ```
 Phase 0   — Business narrative    "Tell me about your business..."
@@ -164,20 +190,46 @@ Phase 4   — Custom tasks          "Anything we haven't covered?"
 Phase 5   — Autonomy mapping      One question: what can the agent handle alone vs. ask first?
 ```
 
-Matching runs silently in the background throughout — the owner never sees a task ID or domain code.
+Every question is built from the previous answer. CDM probes reference the incident the owner described. Laddering quotes their own words. Exception probing surfaces failure conditions from lived experience. None of it is scripted — it follows the conversation.
 
 ---
 
-## Scientific basis
+## Output format
 
-| Method | Source | Used for |
-|---|---|---|
-| Critical Decision Method (CDM) | Klein, 1989 | Incident-based narrative elicitation |
-| Laddering | Kelly, 1955 | Three layers deep per task, following the owner's own words |
-| Exception probing | Beyer & Holtzblatt, 1997 | "When does this go wrong?" |
-| Causal graph mirroring | MKB WorldModel v1.5 | Upstream/downstream task suggestions |
+### worldmodel.json
+```json
+{
+  "schema_version": "1.5-custom",
+  "_meta": {
+    "agent_name": "Nova",
+    "method": "CDM+Laddering+ExceptionProbing"
+  },
+  "tasks": [ "...confirmed tasks only, with laddering answers embedded..." ]
+}
+```
 
-Triangulation of methods improved validity in 15 of 23 studies (Crandall, Klein & Hoffman, 2006, *Working Minds*).
+### agent_config.yaml
+```yaml
+agent:
+  name: "Nova"
+  name_permanent: true
+
+autonomy:
+  autonomous:
+    - "Send payment reminder"
+  ask_first:
+    - "Send quote to client"
+
+escalation:
+  - task: "Process payment"
+    trigger: "Amount above 500"
+```
+
+### SOUL.md
+A Markdown identity file — pre-filled from interview answers, ready to extend.
+
+### report.html
+A printable business analysis report covering risk tiers, autonomy breakdown, opportunity sizing, and compliance. Open in any browser and print to PDF.
 
 ---
 
@@ -226,47 +278,9 @@ class MyOrchestrator(BaseOrchestrator):
 
 ---
 
-## Output format
-
-### worldmodel.json
-```json
-{
-  "schema_version": "1.5-custom",
-  "_meta": {
-    "company_name": "...",
-    "agent_name": "Nova",
-    "method": "CDM+Laddering+ExceptionProbing"
-  },
-  "tasks": [ ... confirmed tasks only ... ]
-}
-```
-
-### agent_config.yaml
-```yaml
-agent:
-  name: "Nova"
-  name_permanent: true
-  name_appears_in_output: true
-
-autonomy:
-  autonomous:
-    - "Send payment reminder"
-  ask_first:
-    - "Send quote to client"
-
-escalation:
-  - task: "Process payment"
-    trigger: "Amount above 500"
-```
-
-### SOUL.md
-A Markdown identity file for the agent — pre-filled from interview answers, ready to extend.
-
----
-
 ## World model
 
-The knowledge base (`worldmodel/sme_worldmodel_v1.5.json`) contains **2,928 SME tasks** across 10 domains:
+The knowledge base (`worldmodel/sme_worldmodel_v1.5.json`) contains **2,986 SME tasks** across 10 domains:
 
 | Domain | Label |
 |---|---|
@@ -281,7 +295,7 @@ The knowledge base (`worldmodel/sme_worldmodel_v1.5.json`) contains **2,928 SME 
 | D-LEG | Legal & Compliance |
 | D-STR | Strategy |
 
-Tasks are connected by **16,281 causal edges** (upstream → downstream). The agent can traverse this graph to understand the ripple effects of any action before taking it.
+Tasks are connected by **16,281 causal edges** (upstream → downstream). Each task carries O*NET occupation codes, ESCO mappings, SBI 2025 sector codes, risk levels, and autonomy profiles.
 
 ---
 
@@ -304,6 +318,9 @@ Apache 2.0 — see [LICENSE](LICENSE).
 - **CDM methodology** — Klein, G.A. (1989). *Recognition-primed decisions.* Advances in Man-Machine Systems Research.
 - **Laddering** — Kelly, G.A. (1955). *The Psychology of Personal Constructs.* Norton.
 - **Exception probing** — Beyer, H. & Holtzblatt, K. (1997). *Contextual Design.* Morgan Kaufmann.
+- **Triangulation** — Crandall, Klein & Hoffman (2006). *Working Minds.* MIT Press.
 - **Procedural Knowledge Ontology** — Carriero et al. (2025). ESWC. CC-BY-4.0.
 - **Temporal graph concept** — [Graphiti](https://github.com/getzep/graphiti) by Zep (Apache 2.0).
-- **World model concept** — inspired by LeCun, Y. (2022). *A Path Towards Autonomous Machine Intelligence.*
+- **World model concept** — LeCun, Y. (2022). *A Path Towards Autonomous Machine Intelligence.*
+- **O*NET** — U.S. Department of Labor. *Occupational Information Network.*
+- **ESCO** — European Commission. *European Skills, Competences, Qualifications and Occupations.*

@@ -12,6 +12,7 @@ from .export import (
     export_soul_md,
     DOMAIN_LABELS,
 )
+from .report import build_html_report
 
 __all__ = [
     "extract_tasks_from_narrative",
@@ -30,4 +31,5 @@ __all__ = [
     "export_agent_config_yaml",
     "export_soul_md",
     "DOMAIN_LABELS",
+    "build_html_report",
 ]

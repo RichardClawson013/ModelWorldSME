@@ -34,6 +34,7 @@ from ..core.export import (
     export_soul_md,
     DOMAIN_LABELS,
 )
+from ..core.report import build_html_report
 from .questions import AGENT_NAME_QUESTION, make_domain_question, _DOMAIN_FOLLOWUPS
 
 
@@ -42,6 +43,7 @@ class InterviewResult:
     worldmodel_json: str = ""
     agent_config_yaml: str = ""
     soul_md: str = ""
+    html_report: str = ""
     summary: dict[str, Any] = field(default_factory=dict)
     warnings: list[dict[str, Any]] = field(default_factory=list)
 
@@ -114,6 +116,7 @@ class InterviewFlow:
             worldmodel_json=export_worldmodel_json(self._model, self._confirmed_ids),
             agent_config_yaml=export_agent_config_yaml(self._model, self._confirmed_ids),
             soul_md=export_soul_md(self._model),
+            html_report=build_html_report(self._model, self._confirmed_ids),
             summary=build_summary(self._model, self._confirmed_ids),
             warnings=check_consistency(self._model),
         )

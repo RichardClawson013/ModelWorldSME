@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ModelWorldSME — Business Elicitation Interview</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2a2d3a;
+      --accent:    #5b8def;
+      --accent-d:  #3a6fd8;
+      --text:      #e8eaf0;
+      --muted:     #6b7280;
+      --q-bg:      #1e2236;
+      --a-bg:      #2a3050;
+      --success:   #22c55e;
+      --warning:   #f59e0b;
+      --danger:    #ef4444;
+      --radius:    12px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      padding: 16px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .logo { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.3px; }
+    .logo span { color: var(--accent); }
+    .badge {
+      font-size: 0.7rem; background: var(--border); color: var(--muted);
+      padding: 3px 8px; border-radius: 20px;
+    }
+
+    /* ── Progress bar ────────────────────────────────────────────── */
+    #progress-wrap {
+      background: var(--border); height: 3px; width: 100%; flex-shrink: 0;
+    }
+    #progress-bar {
+      height: 3px; background: var(--accent);
+      transition: width 0.4s ease; width: 0%;
+    }
+
+    /* ── Phase label ─────────────────────────────────────────────── */
+    #phase-label {
+      text-align: center; font-size: 0.72rem; color: var(--muted);
+      padding: 8px 24px 0; letter-spacing: 0.5px; text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    /* ── Chat area ───────────────────────────────────────────────── */
+    #chat {
+      flex: 1; overflow-y: auto; padding: 24px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    .bubble {
+      max-width: 680px; padding: 14px 18px;
+      border-radius: var(--radius); line-height: 1.55; font-size: 0.95rem;
+    }
+    .bubble.q {
+      background: var(--q-bg); border: 1px solid var(--border);
+      align-self: flex-start; border-top-left-radius: 4px;
+    }
+    .bubble.a {
+      background: var(--a-bg); border: 1px solid #3a4060;
+      align-self: flex-end; border-top-right-radius: 4px;
+      color: #c8d0e8;
+    }
+
+    /* ── Loading overlay ─────────────────────────────────────────── */
+    #loading {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+      z-index: 100;
+    }
+    #loading.hidden { display: none; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ── Input area ──────────────────────────────────────────────── */
+    #input-area {
+      padding: 16px 24px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex; gap: 10px;
+      flex-shrink: 0;
+    }
+    #user-input {
+      flex: 1;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 16px; font-size: 0.95rem;
+      resize: none; min-height: 48px; max-height: 140px;
+      font-family: inherit;
+    }
+    #user-input:focus { outline: none; border-color: var(--accent); }
+    #send-btn {
+      background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius);
+      padding: 0 22px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s;
+      white-space: nowrap;
+    }
+    #send-btn:hover { background: var(--accent-d); }
+    #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Results panel ───────────────────────────────────────────── */
+    #results {
+      display: none;
+      padding: 32px 24px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+    }
+    #results.visible { display: block; }
+    .results-title {
+      font-size: 1.25rem; font-weight: 700; margin-bottom: 8px;
+    }
+    .results-sub {
+      color: var(--muted); font-size: 0.875rem; margin-bottom: 24px;
+    }
+    .dl-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .dl-btn {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 18px;
+      color: var(--text); text-decoration: none;
+      cursor: pointer; font-size: 0.875rem; font-weight: 500;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .dl-btn:hover { border-color: var(--accent); background: var(--q-bg); }
+    .dl-icon { font-size: 1.3rem; }
+    .dl-info { display: flex; flex-direction: column; }
+    .dl-name { font-weight: 600; }
+    .dl-desc { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+    .stat-row {
+      display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 24px;
+    }
+    .stat {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 20px;
+    }
+    .stat-num { font-size: 2rem; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      #chat { padding: 16px; }
+      .bubble { max-width: 100%; }
+      #input-area { flex-direction: column; }
+      #send-btn { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Loading knowledge base (2,986 tasks)…</p>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">Model<span>World</span>SME</div>
+  <span class="badge">Live demo · no API key needed</span>
+</header>
+
+<!-- Progress -->
+<div id="progress-wrap"><div id="progress-bar"></div></div>
+<div id="phase-label">Starting interview…</div>
+
+<!-- Chat -->
+<div id="chat"></div>
+
+<!-- Results (shown at end) -->
+<div id="results">
+  <div class="results-title">Interview complete</div>
+  <div class="results-sub" id="results-sub"></div>
+  <div class="stat-row" id="stats"></div>
+  <div class="dl-grid" id="downloads"></div>
+</div>
+
+<!-- Input -->
+<div id="input-area">
+  <textarea id="user-input" rows="1" placeholder="Type your answer…" autofocus></textarea>
+  <button id="send-btn">Send</button>
+</div>
+
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────
+// 1. SYNONYM TABLE  (mirrors matching.py)
+// ─────────────────────────────────────────────────────────────
+const SYNONYMS = {
+  invoice:     ['factuur','billing','rekening','nota'],
+  payment:     ['betaling','betalen','transfer','overschrijving'],
+  customer:    ['klant','client','opdrachtgever','afnemer'],
+  supplier:    ['leverancier','vendor','inkoop'],
+  employee:    ['personeel','medewerker','staff','werknemer'],
+  quote:       ['offerte','quotation','proposal','aanbieding'],
+  contract:    ['overeenkomst','agreement'],
+  planning:    ['schedule','agenda','rooster'],
+  purchase:    ['inkoop','bestelling','order'],
+  sales:       ['verkoop','omzet'],
+  report:      ['rapport','rapportage','verslag','overzicht'],
+  tax:         ['btw','vat','belasting','aangifte'],
+  absence:     ['verzuim','sick','ziek','verlof'],
+  project:     ['klus','opdracht','werk'],
+  budget:      ['begroting','kosten','uitgaven'],
+  website:     ['web','online','digitaal'],
+  email:       ['mail','e-mail','bericht','correspondentie'],
+  complaint:   ['klacht','klachten','bezwaar'],
+  maintenance: ['onderhoud','reparatie','service'],
+  delivery:    ['levering','bezorging','transport'],
+};
+
+function expandSynonyms(text) {
+  const lower = text.toLowerCase();
+  const extra = [];
+  for (const [canonical, syns] of Object.entries(SYNONYMS)) {
+    const hits = [canonical, ...syns];
+    if (hits.some(h => lower.includes(h))) extra.push(...hits);
+  }
+  return lower + ' ' + extra.join(' ');
+}
+
+function extractTasks(narrative, tasks, topN = 12) {
+  const expanded = expandSynonyms(narrative);
+  const words = expanded.split(/\W+/).filter(w => w.length >= 4);
+  const scores = {};
+  for (const task of tasks) {
+    const blob = expandSynonyms([
+      task.name || '', task.name_en || '', task.description || '',
+      (task.cause||{}).trigger || '', (task.cause||{}).business_need || '',
+      (task.effect||{}).output || '',
+      ...(task.state_inputs||[]), ...(task.state_outputs||[]),
+    ].join(' '));
+    let score = words.reduce((n, w) => n + (blob.includes(w) ? 1 : 0), 0);
+    const prefix = (task.name||'').slice(0,10).toLowerCase();
+    if (prefix && narrative.toLowerCase().includes(prefix)) score += 3;
+    if (score > 0) scores[task.id] = score;
+  }
+  return Object.entries(scores)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topN)
+    .map(([id]) => tasks.find(t => t.id === id))
+    .filter(Boolean);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 2. CDM  (mirrors cdm.py)
+// ─────────────────────────────────────────────────────────────
+const STRIP_LEAD = new Set(['i','we','so','well','it','that','on','there','yeah','the']);
+
+function firstPhrase(text, maxWords = 7) {
+  text = text.trim();
+  const clause = text.split(/[,;.!?\n]/)[0].trim();
+  let words = clause.split(/\s+/);
+  if (words.length && STRIP_LEAD.has(words[0].toLowerCase())) words = words.slice(1);
+  const result = words.slice(0, maxWords).join(' ');
+  return result ? result.toLowerCase() : 'that situation';
+}
+
+function makeCdmProbes(incident) {
+  const phrase = firstPhrase(incident);
+  return [
+    `Walk me through ${phrase} step by step — from when you first noticed something was off to how it ended.`,
+    'At that moment, what was the first sign that told you this needed your attention?',
+    "What did you need to know or decide that someone without your experience wouldn't have handled the same way?",
+    "If you hadn't been there — or if things had gone slightly differently — what would have gone wrong?",
+    'How did it end up, and if it happened again tomorrow, what would you do differently?',
+  ];
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3. LADDERING  (mirrors laddering.py)
+// ─────────────────────────────────────────────────────────────
+const STRIP_LEAD2 = new Set(['i','we','so','well','it','that','because','yeah','the']);
+
+function keyPhrase(text, maxWords = 8) {
+  text = text.trim();
+  const clause = text.split(/[,;.!?\n]/)[0].trim();
+  let words = clause.split(/\s+/);
+  if (words.length && STRIP_LEAD2.has(words[0].toLowerCase())) words = words.slice(1);
+  const result = words.slice(0, maxWords).join(' ');
+  return result ? result.toLowerCase() : 'that';
+}
+
+function makeLadderingQuestion(taskName, depth, prevAnswer = null) {
+  if (depth === 0)
+    return `Let's talk about ${taskName}. When that goes well, what does it actually look like in practice?`;
+  if (depth === 1) {
+    const phrase = prevAnswer ? keyPhrase(prevAnswer) : taskName;
+    return `You said ${phrase}. Why does getting that right matter to you?`;
+  }
+  if (depth === 2) {
+    const phrase = prevAnswer ? keyPhrase(prevAnswer) : 'that';
+    return `And why does ${phrase} matter — what's actually at stake if it slips?`;
+  }
+  return null;
+}
+
+function makeExceptionQuestion(taskName, ladderingAnswer = null) {
+  if (ladderingAnswer) {
+    const phrase = keyPhrase(ladderingAnswer);
+    return `You said ${phrase} is what matters. Tell me about a time ${taskName} didn't go that way — when it went wrong, or when you had to handle it completely differently than usual.`;
+  }
+  return `Tell me about a time ${taskName} went wrong, or a situation where you had to handle it completely differently than usual.`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 4. DOMAIN QUESTIONS  (mirrors questions.py)
+// ─────────────────────────────────────────────────────────────
+const DOMAIN_LABELS = {
+  'D-FIN': 'Finance & Administration',
+  'D-SAL': 'Sales',
+  'D-KLA': 'Customer Service',
+  'D-MKT': 'Marketing',
+  'D-HRM': 'People & HR',
+  'D-OPS': 'Operations',
+  'D-DEL': 'Logistics & Delivery',
+  'D-ICT': 'IT & Systems',
+  'D-LEG': 'Legal & Compliance',
+  'D-STR': 'Strategy',
+  'D-CUSTOM': 'Custom Tasks',
+};
+
+const DOMAIN_FOLLOWUPS = {
+  'D-FIN': 'Walk me through how you handle that week to week — from when a job is done to when the money is in your account.',
+  'D-SAL': 'How do new clients find you, and what happens from first contact to a signed deal?',
+  'D-KLA': 'When a client reaches out with a question or complaint, what does that process look like from start to finish?',
+  'D-MKT': 'What does your marketing actually look like in practice — day to day, week to week?',
+  'D-HRM': 'Tell me about the people side of things — scheduling, tracking time, managing absence.',
+  'D-OPS': 'What are the recurring tasks that just have to happen every week for the business to keep running?',
+  'D-DEL': 'How does delivery or fulfillment work once a job is confirmed?',
+  'D-ICT': 'What systems and tools do you rely on daily — and what breaks when they don\'t work?',
+  'D-LEG': 'How do you keep track of the legal and regulatory side — contracts, permits, compliance?',
+  'D-STR': 'How do you make bigger decisions — pricing, new services, growth — is that planned or more ad hoc?',
+};
+
+function makeDomainQuestion(domain, taskNames) {
+  let intro;
+  if (taskNames.length === 1)        intro = `You mentioned "${taskNames[0]}".`;
+  else if (taskNames.length === 2)   intro = `You mentioned "${taskNames[0]}" and "${taskNames[1]}".`;
+  else                               intro = `You mentioned "${taskNames[0]}", "${taskNames[1]}", and related things.`;
+  const followup = DOMAIN_FOLLOWUPS[domain] || 'Tell me more about how that works in practice.';
+  return `${intro} ${followup}`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 5. AUTONOMY PARSING
+// ─────────────────────────────────────────────────────────────
+function parseAutonomy(answer) {
+  const l = answer.toLowerCase();
+  if (['independently','on its own','always','fine','go ahead'].some(s => l.includes(s))) return 'autonomous';
+  if (['inform','let me know','after','report'].some(s => l.includes(s))) return 'notify';
+  if (['never','always me','myself','i do'].some(s => l.includes(s))) return 'human_only';
+  if (['ask','first','check','permission','approve'].some(s => l.includes(s))) return 'ask_first';
+  return 'ask_first';
+}
+
+function parseThreshold(answer) {
+  const m = answer.match(/[$€£]?\s*([\d,]+(?:\.\d+)?)\s*(?:euro|eur|dollar|usd|gbp)?/i);
+  if (m) { const v = parseFloat(m[1].replace(',', '')); if (!isNaN(v)) return v; }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 6. EXPORT FUNCTIONS
+// ─────────────────────────────────────────────────────────────
+function exportWorldmodelJson(model, confirmedIds) {
+  const confirmed = new Set([...confirmedIds, ...(model._custom_tasks||[])]);
+  const out = {
+    ...model,
+    schema_version: '1.5-custom',
+    tasks: model.tasks.filter(t => confirmed.has(t.id)),
+    notes: `Personalized model for ${model._meta?.company_name||'unknown'} — generated ${new Date().toISOString().slice(0,10)}`,
+  };
+  delete out._custom_tasks;
+  return JSON.stringify(out, null, 2);
+}
+
+function exportAgentConfigYaml(model, confirmedIds) {
+  const meta = model._meta || {};
+  const agentName = meta.agent_name || 'assistant';
+  const confirmed = model.tasks.filter(t => confirmedIds.has(t.id) || t.custom);
+  const today = new Date().toISOString().slice(0,10);
+
+  const lines = [
+    '# Agent configuration — generated by ModelWorldSME',
+    '# https://github.com/RichardClawson013/ModelWorldSME',
+    '',
+    'agent:',
+    `  name: "${agentName}"`,
+    '  name_permanent: true',
+    '  name_appears_in_output: true',
+    `  company: "${meta.company_name||''}"`,
+    `  generated_on: "${today}"`,
+    '  method: "CDM+Laddering+ExceptionProbing"',
+    '',
+    'autonomy:',
+  ];
+
+  for (const level of ['autonomous','notify','ask_first','human_only']) {
+    const tasksAtLevel = confirmed
+      .filter(t => (t.agent_profile||{}).automatable === level)
+      .map(t => t.name || t.id)
+      .slice(0, 10);
+    if (tasksAtLevel.length) {
+      lines.push(`  ${level}:`);
+      tasksAtLevel.forEach(name => lines.push(`    - "${name}"`));
+    }
+  }
+
+  lines.push('', 'escalation:');
+  for (const t of confirmed) {
+    for (const trigger of (t.agent_profile||{}).escalation_triggers||[]) {
+      lines.push(`  - task: "${t.name||t.id}"`);
+      lines.push(`    trigger: "${trigger}"`);
+    }
+  }
+
+  lines.push('', 'domains_active:');
+  const domains = [...new Set(confirmed.map(t => t.domain||'?'))].sort();
+  for (const d of domains) lines.push(`  - ${d}  # ${DOMAIN_LABELS[d]||d}`);
+
+  return lines.join('\n') + '\n';
+}
+
+function exportSoulMd(model) {
+  const meta = model._meta || {};
+  const agentName = meta.agent_name || 'assistant';
+  const company = meta.company_name || 'the business';
+  const today = new Date().toISOString().slice(0,10);
+  return `# SOUL — ${agentName}
+
+> This file defines who ${agentName} is. It is the identity layer loaded on every session start.
+> Generated by ModelWorldSME on ${today}.
+
+## Identity
+
+My name is **${agentName}**. This name is permanent — it appears in everything I send.
+I work for **${company}**.
+
+## What I do
+
+I handle recurring tasks so the owner can focus on work that requires judgement.
+I do not replace the owner — I handle what follows a pattern.
+
+## How I communicate
+
+[To be filled in — tone, formality, preferred style]
+
+## What I never do without asking
+
+[To be filled in — escalation conditions from the world model]
+
+## What I can do autonomously
+
+[To be filled in — autonomous tasks from the world model]
+
+## My limits
+
+- I never share confidential information
+- I never make decisions above the agreed thresholds
+- When in doubt, I ask the owner first
+
+---
+*This SOUL.md is a starting point. It will evolve with every interaction.*
+`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 7. HTML REPORT
+// ─────────────────────────────────────────────────────────────
+function buildReport(model, confirmedIds) {
+  const meta = model._meta || {};
+  const agentName = meta.agent_name || 'Your Assistant';
+  const company = meta.company_name || 'Your Business';
+  const today = new Date().toISOString().slice(0, 10);
+
+  const confirmed = model.tasks.filter(t => confirmedIds.has(t.id) || t.custom);
+
+  // Domain breakdown
+  const byDomain = {};
+  for (const t of confirmed) {
+    const d = t.domain || '?';
+    byDomain[d] = (byDomain[d] || 0) + 1;
+  }
+
+  // Risk tiers
+  const critical = confirmed.filter(t => (t.failure||{}).risk_level === 'critical');
+  const high     = confirmed.filter(t => (t.failure||{}).risk_level === 'high');
+  const medium   = confirmed.filter(t => (t.failure||{}).risk_level === 'medium');
+
+  // Autonomy
+  const autonomous = confirmed.filter(t => (t.agent_profile||{}).automatable === 'autonomous');
+  const notify     = confirmed.filter(t => (t.agent_profile||{}).automatable === 'notify');
+  const askFirst   = confirmed.filter(t => (t.agent_profile||{}).automatable === 'ask_first');
+  const humanOnly  = confirmed.filter(t => (t.agent_profile||{}).automatable === 'human_only');
+
+  // Compliance tasks
+  const compliance = confirmed.filter(t => t.domain === 'D-LEG');
+
+  // Domain rows
+  const domainRows = Object.entries(byDomain)
+    .sort((a, b) => b[1] - a[1])
+    .map(([d, n]) => `<tr><td>${DOMAIN_LABELS[d]||d}</td><td>${d}</td><td><strong>${n}</strong></td></tr>`)
+    .join('');
+
+  // Task list helper
+  const taskList = (tasks, max = 20) => tasks.slice(0, max)
+    .map(t => `<li>${t.name_en || t.name || t.id}${t._custom?.laddering_answers?.length ? ' <span class="tag">laddered</span>' : ''}</li>`)
+    .join('');
+
+  const estHoursPerWeek = Math.round(autonomous.length * 1.5 + notify.length * 0.5);
+  const estAnnualHours  = estHoursPerWeek * 50;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Business World Model Report — ${company}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 860px; margin: 0 auto; padding: 40px 24px; color: #1a1d27; line-height: 1.6; }
+  h1 { font-size: 2rem; font-weight: 800; margin-bottom: 4px; }
+  h2 { font-size: 1.25rem; font-weight: 700; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; margin: 36px 0 16px; color: #3a6fd8; }
+  h3 { font-size: 1rem; font-weight: 600; margin: 20px 0 8px; }
+  .meta { color: #6b7280; font-size: 0.875rem; margin-bottom: 32px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 32px; }
+  .kpi { background: #f3f6ff; border-radius: 10px; padding: 16px; text-align: center; }
+  .kpi-num { font-size: 2.5rem; font-weight: 800; color: #3a6fd8; line-height: 1; }
+  .kpi-label { font-size: 0.72rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th { text-align: left; padding: 8px 12px; background: #f3f6ff; color: #374151; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; }
+  ul { padding-left: 20px; margin: 0; }
+  li { padding: 3px 0; font-size: 0.9rem; }
+  .risk-critical { color: #dc2626; font-weight: 700; }
+  .risk-high     { color: #d97706; font-weight: 600; }
+  .risk-medium   { color: #0ea5e9; }
+  .tag { background: #dbeafe; color: #1e40af; font-size: 0.7rem; padding: 1px 6px; border-radius: 10px; vertical-align: middle; }
+  .section-note { background: #f9fafb; border-left: 3px solid #3a6fd8; padding: 12px 16px; font-size: 0.875rem; color: #374151; border-radius: 0 6px 6px 0; margin: 12px 0; }
+  .opportunity-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .opportunity-box strong { color: #166534; }
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 0.8rem; color: #9ca3af; }
+  @media print { body { padding: 20px; } }
+</style>
+</head>
+<body>
+
+<h1>Business World Model</h1>
+<div class="meta">
+  Generated for <strong>${company}</strong> · Agent: <strong>${agentName}</strong> · ${today}<br/>
+  Method: CDM + Laddering + Exception Probing · ModelWorldSME v1.0
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-num">${confirmed.length}</div><div class="kpi-label">Tasks confirmed</div></div>
+  <div class="kpi"><div class="kpi-num">${autonomous.length}</div><div class="kpi-label">Fully autonomous</div></div>
+  <div class="kpi"><div class="kpi-num">${critical.length + high.length}</div><div class="kpi-label">High-risk tasks</div></div>
+  <div class="kpi"><div class="kpi-num">${Object.keys(byDomain).length}</div><div class="kpi-label">Business domains</div></div>
+  <div class="kpi"><div class="kpi-num">~${estHoursPerWeek}h</div><div class="kpi-label">Automatable / week</div></div>
+</div>
+
+<h2>Executive Summary</h2>
+<p>
+  This report captures the business operations of <strong>${company}</strong> as elicited through a structured interview
+  combining Critical Decision Method (Klein, 1989), Laddering (Kelly, 1955), and Exception Probing (Beyer &amp; Holtzblatt, 1997).
+</p>
+<p style="margin-top:10px">
+  The interview confirmed <strong>${confirmed.length} tasks</strong> across <strong>${Object.keys(byDomain).length} business domains</strong>.
+  Based on the autonomy mapping, the agent <strong>${agentName}</strong> can handle approximately
+  <strong>${estHoursPerWeek} hours of work per week</strong> without human intervention — roughly
+  <strong>${estAnnualHours} hours per year</strong>.
+</p>
+
+${critical.length > 0 ? `
+<div class="section-note">
+  ⚠️ <strong>${critical.length} critical-risk task${critical.length > 1 ? 's' : ''}</strong> identified.
+  These are the tasks most likely to cause serious business harm if they fail.
+  They are listed in the Risk Analysis section below.
+</div>` : ''}
+
+<h2>Tasks by Domain</h2>
+<table>
+  <thead><tr><th>Domain</th><th>Code</th><th>Tasks confirmed</th></tr></thead>
+  <tbody>${domainRows || '<tr><td colspan="3">No tasks confirmed yet</td></tr>'}</tbody>
+</table>
+
+<h2>Risk Analysis</h2>
+
+${critical.length > 0 ? `
+<h3><span class="risk-critical">● Critical risk</span> (${critical.length} tasks)</h3>
+<ul>${taskList(critical)}</ul>
+<div class="section-note">
+  These tasks have the highest failure impact on the business.
+  ${agentName} should apply maximum guardrails and always escalate to the owner when unexpected conditions arise.
+</div>` : ''}
+
+${high.length > 0 ? `
+<h3><span class="risk-high">● High risk</span> (${high.length} tasks)</h3>
+<ul>${taskList(high)}</ul>` : ''}
+
+${medium.length > 0 ? `
+<h3><span class="risk-medium">● Medium risk</span> (${medium.length} tasks)</h3>
+<ul>${taskList(medium, 10)}</ul>` : ''}
+
+<h2>Autonomy Mapping</h2>
+<p>Based on the owner's answers during the interview, tasks are allocated as follows:</p>
+
+${autonomous.length > 0 ? `
+<h3>Fully autonomous — ${agentName} acts without asking (${autonomous.length})</h3>
+<ul>${taskList(autonomous)}</ul>` : ''}
+
+${notify.length > 0 ? `
+<h3>Act + notify — ${agentName} acts, then informs owner (${notify.length})</h3>
+<ul>${taskList(notify)}</ul>` : ''}
+
+${askFirst.length > 0 ? `
+<h3>Ask first — ${agentName} asks permission before acting (${askFirst.length})</h3>
+<ul>${taskList(askFirst)}</ul>` : ''}
+
+${humanOnly.length > 0 ? `
+<h3>Human only — always handled by the owner (${humanOnly.length})</h3>
+<ul>${taskList(humanOnly)}</ul>` : ''}
+
+<h2>Opportunity Analysis</h2>
+
+<div class="opportunity-box">
+  <strong>Time savings:</strong> With ${autonomous.length} autonomous tasks and ${notify.length} notify-only tasks,
+  ${agentName} can save the business an estimated <strong>${estHoursPerWeek} hours per week</strong>
+  (~${estAnnualHours} hours/year) in direct execution time.
+</div>
+
+<div class="opportunity-box">
+  <strong>Risk reduction:</strong> ${critical.length + high.length} high-priority tasks have been identified
+  for proactive monitoring. Automating these with guardrails reduces the chance of costly failures.
+</div>
+
+<div class="opportunity-box">
+  <strong>Knowledge capture:</strong> The interview surfaced tacit knowledge — including failure modes
+  and exception conditions — that is now encoded in the world model. This knowledge persists even
+  when people leave or roles change.
+</div>
+
+${compliance.length > 0 ? `
+<h2>Compliance</h2>
+<p>${compliance.length} compliance-relevant task${compliance.length > 1 ? 's' : ''} confirmed.</p>
+<ul>${taskList(compliance)}</ul>
+<div class="section-note">
+  ${agentName} should apply ask_first or human_only autonomy levels to all compliance tasks
+  unless the owner has explicitly confirmed otherwise.
+</div>` : ''}
+
+<h2>Output Files</h2>
+<ul>
+  <li><strong>worldmodel_${agentName}.json</strong> — Personalized world model (confirmed tasks only)</li>
+  <li><strong>agent_config_${agentName}.yaml</strong> — Agent behaviour configuration</li>
+  <li><strong>SOUL_${agentName}.md</strong> — Agent identity file</li>
+  <li><strong>report_${agentName}.html</strong> — This report</li>
+</ul>
+
+<h2>Scientific Basis</h2>
+<ul>
+  <li>Critical Decision Method — Klein, G.A. (1989). <em>Recognition-primed decisions.</em></li>
+  <li>Laddering — Kelly, G.A. (1955). <em>The Psychology of Personal Constructs.</em></li>
+  <li>Exception probing — Beyer, H. &amp; Holtzblatt, K. (1997). <em>Contextual Design.</em></li>
+  <li>World model concept — LeCun, Y. (2022). <em>A Path Towards Autonomous Machine Intelligence.</em></li>
+</ul>
+
+<footer>
+  Generated by <a href="https://github.com/RichardClawson013/ModelWorldSME">ModelWorldSME</a> v1.0 ·
+  Apache 2.0 · ${today}
+</footer>
+</body>
+</html>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 8. INTERVIEW STATE MACHINE
+// ─────────────────────────────────────────────────────────────
+class InterviewFlow {
+  constructor(model) {
+    this.model = model;
+    this.confirmedIds = new Set();
+    this.insights = {};
+    this.narrativeParts = [];
+    this.meta = {};
+
+    this.phase = 'intro';
+
+    // CDM
+    this.incident = '';
+    this.cdmProbes = [];
+    this.cdmIndex = 0;
+
+    // Domain confirm
+    this.domainQueue = [];
+
+    // Laddering
+    this.ladderQueue = [];
+    this.ladderTask = null;
+    this.ladderDepth = 0;
+    this.ladderLastAnswer = '';
+    this.inException = false;
+  }
+
+  get done() { return this.phase === 'done'; }
+
+  next(answer = null) {
+    if (answer !== null) this._ingest(answer);
+    return this._emit();
+  }
+
+  _ingest(answer) {
+    this.narrativeParts.push(answer);
+    this._runMatching();
+
+    switch (this.phase) {
+      case 'intro':
+        this.meta.description = answer;
+        this.phase = 'agent_name';
+        break;
+
+      case 'agent_name':
+        this.meta.agent_name = (answer.trim().split(/\s+/)[0] || 'assistant');
+        this.model._meta = { ...this.model._meta, ...this.meta };
+        this.phase = 'cdm_incident';
+        break;
+
+      case 'cdm_incident':
+        this.incident = answer;
+        this.cdmProbes = makeCdmProbes(answer);
+        this.cdmIndex = 0;
+        this.phase = 'cdm_probes';
+        break;
+
+      case 'cdm_probes':
+        this.cdmIndex++;
+        if (this.cdmIndex >= this.cdmProbes.length) {
+          this._prepareDomainQueue();
+          this.phase = this.domainQueue.length ? 'domain_confirm' : 'laddering';
+          if (this.phase === 'laddering') this._prepareLadderQueue();
+        }
+        break;
+
+      case 'domain_confirm':
+        if (this.domainQueue.length) this.domainQueue.shift();
+        if (!this.domainQueue.length) {
+          this._prepareLadderQueue();
+          this.phase = this.ladderQueue.length ? 'laddering' : 'custom';
+          if (this.phase === 'laddering') this._startNextLadderTask();
+        }
+        break;
+
+      case 'laddering':
+        this._processLadderAnswer(answer);
+        break;
+
+      case 'custom':
+        if (answer.trim().length > 5) this._addCustomTask(answer.trim());
+        this.phase = 'autonomy';
+        break;
+
+      case 'autonomy':
+        this._processGlobalAutonomy(answer);
+        this.phase = 'done';
+        break;
+    }
+  }
+
+  _emit() {
+    switch (this.phase) {
+      case 'intro':
+        return 'Tell me about your business. What do you do, and what does a typical day look like for you?';
+
+      case 'agent_name':
+        return "Your assistant needs a name — one you'll use consistently. This name is permanent: it will appear in emails, reports, and messages sent on your behalf. What would you like to call your assistant?";
+
+      case 'cdm_incident':
+        return "Tell me about a day that didn't go well — not necessarily the worst, just a day when things piled up or something slipped through.";
+
+      case 'cdm_probes':
+        return this.cdmIndex < this.cdmProbes.length ? this.cdmProbes[this.cdmIndex] : null;
+
+      case 'domain_confirm':
+        if (!this.domainQueue.length) return null;
+        const [domain, taskNames] = this.domainQueue[0];
+        return makeDomainQuestion(domain, taskNames);
+
+      case 'laddering':
+        return this._makeLadderQuestion();
+
+      case 'custom':
+        return "Is there anything you do regularly that we haven't talked about yet?";
+
+      case 'autonomy':
+        return "Last question: if your assistant could handle things on its own — what would you want it to do without asking, and what should it always check with you first?";
+
+      default:
+        return null;
+    }
+  }
+
+  _runMatching() {
+    const full = this.narrativeParts.join(' ');
+    const matched = extractTasks(full, this.model.tasks || []);
+    matched.forEach(t => this.confirmedIds.add(t.id));
+  }
+
+  _prepareDomainQueue() {
+    const taskMap = {};
+    (this.model.tasks || []).forEach(t => taskMap[t.id] = t);
+    const domains = {};
+    for (const tid of this.confirmedIds) {
+      const task = taskMap[tid];
+      if (!task) continue;
+      const domain = task.domain || '';
+      const name   = task.name_en || task.name || '';
+      if (domain && name && DOMAIN_FOLLOWUPS[domain]) {
+        domains[domain] = domains[domain] || [];
+        domains[domain].push(name);
+      }
+    }
+    this.domainQueue = Object.entries(domains)
+      .filter(([, names]) => names.length >= 2)
+      .slice(0, 4);
+  }
+
+  _prepareLadderQueue() {
+    const taskMap = {};
+    (this.model.tasks || []).forEach(t => taskMap[t.id] = t);
+    const riskOrder = ['critical','high','medium','low'];
+    const candidates = [...this.confirmedIds]
+      .map(id => taskMap[id])
+      .filter(Boolean)
+      .sort((a, b) => {
+        const ra = riskOrder.indexOf((a.failure||{}).risk_level||'low');
+        const rb = riskOrder.indexOf((b.failure||{}).risk_level||'low');
+        return (ra === -1 ? 3 : ra) - (rb === -1 ? 3 : rb);
+      });
+    this.ladderQueue = candidates.slice(0, 3);
+  }
+
+  _startNextLadderTask() {
+    this.ladderTask = this.ladderQueue.shift();
+    this.ladderDepth = 0;
+    this.ladderLastAnswer = '';
+    this.inException = false;
+  }
+
+  _makeLadderQuestion() {
+    if (!this.ladderTask) return null;
+    const name = this.ladderTask.name_en || this.ladderTask.name || '';
+    if (this.inException)
+      return makeExceptionQuestion(name, this.ladderLastAnswer || null);
+    return makeLadderingQuestion(name, this.ladderDepth, this.ladderLastAnswer || null);
+  }
+
+  _processLadderAnswer(answer) {
+    if (!this.ladderTask) { this.phase = 'custom'; return; }
+    const ins = this.insights[this.ladderTask.id] = this.insights[this.ladderTask.id] || {};
+
+    if (this.inException) {
+      ins.exception = answer;
+      if (this.ladderTask.failure) this.ladderTask.failure.failure_mode = answer;
+      if (this.ladderQueue.length) {
+        this._startNextLadderTask();
+      } else {
+        this.phase = 'custom';
+      }
+    } else {
+      (ins.laddering = ins.laddering || []).push(answer);
+      this.ladderLastAnswer = answer;
+      this.ladderDepth++;
+      if (this.ladderDepth >= 3) this.inException = true;
+    }
+  }
+
+  _processGlobalAutonomy(answer) {
+    const level = parseAutonomy(answer);
+    const threshold = parseThreshold(answer);
+    const taskMap = {};
+    (this.model.tasks || []).forEach(t => taskMap[t.id] = t);
+    for (const tid of this.confirmedIds) {
+      const task = taskMap[tid];
+      if (!task) continue;
+      const ins = this.insights[tid] = this.insights[tid] || {};
+      if (!ins.autonomy) ins.autonomy = level;
+      task.agent_profile = task.agent_profile || {};
+      task.agent_profile.automatable = ins.autonomy;
+      if (threshold) {
+        task.agent_profile.escalation_triggers = task.agent_profile.escalation_triggers || [];
+        task.agent_profile.escalation_triggers.push(`Amount above ${threshold}`);
+      }
+    }
+  }
+
+  _addCustomTask(description) {
+    const tasks = this.model.tasks = this.model.tasks || [];
+    const custom = this.model._custom_tasks = this.model._custom_tasks || [];
+    const id = `T-CUSTOM-${String(custom.length + 1).padStart(4, '0')}`;
+    const task = {
+      id, name: description.slice(0, 80), description,
+      domain: 'D-CUSTOM', custom: true,
+      agent_profile: { automatable: 'ask_first', guardrails: [], escalation_triggers: [] },
+      cause: { upstream_tasks: [] }, effect: { downstream_tasks: [] },
+      failure: { risk_level: 'medium' },
+    };
+    tasks.push(task);
+    custom.push(id);
+    this.confirmedIds.add(id);
+  }
+
+  export() {
+    this.model._meta = { ...this.model._meta, ...this.meta,
+      generated_on: new Date().toISOString().slice(0,10),
+      tool_version: 'ModelWorldSME-1.0',
+      method: 'CDM+Laddering+ExceptionProbing',
+    };
+    return {
+      worldmodel_json:    exportWorldmodelJson(this.model, this.confirmedIds),
+      agent_config_yaml:  exportAgentConfigYaml(this.model, this.confirmedIds),
+      soul_md:            exportSoulMd(this.model),
+      html_report:        buildReport(this.model, this.confirmedIds),
+      agent_name:         this.meta.agent_name || 'assistant',
+      total_active:       this.confirmedIds.size,
+    };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 9. PHASE → PROGRESS  (8 meaningful phases)
+// ─────────────────────────────────────────────────────────────
+const PHASE_PROGRESS = {
+  intro:          5,
+  agent_name:     12,
+  cdm_incident:   20,
+  cdm_probes:     35,
+  domain_confirm: 52,
+  laddering:      70,
+  custom:         88,
+  autonomy:       94,
+  done:           100,
+};
+
+const PHASE_LABELS = {
+  intro:          'Business narrative',
+  agent_name:     'Agent naming',
+  cdm_incident:   'Critical incident',
+  cdm_probes:     'CDM probes',
+  domain_confirm: 'Domain confirmation',
+  laddering:      'Laddering + Exception probing',
+  custom:         'Custom tasks',
+  autonomy:       'Autonomy mapping',
+  done:           'Complete',
+};
+
+// ─────────────────────────────────────────────────────────────
+// 10. UI
+// ─────────────────────────────────────────────────────────────
+const chat     = document.getElementById('chat');
+const input    = document.getElementById('user-input');
+const sendBtn  = document.getElementById('send-btn');
+const progress = document.getElementById('progress-bar');
+const phaseEl  = document.getElementById('phase-label');
+const loading  = document.getElementById('loading');
+
+let flow = null;
+
+function addBubble(text, type) {
+  const div = document.createElement('div');
+  div.className = `bubble ${type}`;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function updateProgress(phase) {
+  progress.style.width = (PHASE_PROGRESS[phase] || 0) + '%';
+  phaseEl.textContent  = PHASE_LABELS[phase]  || '';
+}
+
+function showQuestion(q) {
+  addBubble(q, 'q');
+  input.disabled  = false;
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function handleSend() {
+  const answer = input.value.trim();
+  if (!answer || !flow) return;
+  input.value = '';
+  input.style.height = 'auto';
+  input.disabled  = true;
+  sendBtn.disabled = true;
+
+  addBubble(answer, 'a');
+
+  const next = flow.next(answer);
+  updateProgress(flow.phase);
+
+  if (next) {
+    showQuestion(next);
+  } else {
+    finishInterview();
+  }
+}
+
+function finishInterview() {
+  input.disabled  = true;
+  sendBtn.disabled = true;
+  document.getElementById('input-area').style.display = 'none';
+
+  const result = flow.export();
+
+  // Stats
+  const statsEl = document.getElementById('stats');
+  statsEl.innerHTML = `
+    <div class="stat"><div class="stat-num">${result.total_active}</div><div class="stat-label">Tasks confirmed</div></div>
+    <div class="stat"><div class="stat-num">${result.agent_name}</div><div class="stat-label">Agent name</div></div>
+  `;
+
+  document.getElementById('results-sub').textContent =
+    `Interview complete. Four files ready to download.`;
+
+  // Downloads
+  const dlGrid = document.getElementById('downloads');
+  const files = [
+    {
+      name: `worldmodel_${result.agent_name}.json`,
+      content: result.worldmodel_json,
+      mime: 'application/json',
+      icon: '🗺️',
+      label: 'World Model',
+      desc: 'Confirmed tasks (JSON)',
+    },
+    {
+      name: `agent_config_${result.agent_name}.yaml`,
+      content: result.agent_config_yaml,
+      mime: 'text/yaml',
+      icon: '⚙️',
+      label: 'Agent Config',
+      desc: 'Autonomy & escalation (YAML)',
+    },
+    {
+      name: `SOUL_${result.agent_name}.md`,
+      content: result.soul_md,
+      mime: 'text/markdown',
+      icon: '✨',
+      label: 'SOUL',
+      desc: 'Agent identity (Markdown)',
+    },
+    {
+      name: `report_${result.agent_name}.html`,
+      content: result.html_report,
+      mime: 'text/html',
+      icon: '📊',
+      label: 'Analysis Report',
+      desc: 'Risks & opportunities (HTML→PDF)',
+    },
+  ];
+
+  for (const f of files) {
+    const blob = new Blob([f.content], { type: f.mime });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = f.name;
+    a.className = 'dl-btn';
+    a.innerHTML = `
+      <span class="dl-icon">${f.icon}</span>
+      <span class="dl-info">
+        <span class="dl-name">${f.label}</span>
+        <span class="dl-desc">${f.desc}</span>
+      </span>`;
+    dlGrid.appendChild(a);
+  }
+
+  document.getElementById('results').classList.add('visible');
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// Auto-resize textarea
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+});
+
+// Send on Enter (Shift+Enter = newline)
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+});
+sendBtn.addEventListener('click', handleSend);
+
+// ─────────────────────────────────────────────────────────────
+// 11. BOOT — fetch worldmodel then start
+// ─────────────────────────────────────────────────────────────
+const WORLDMODEL_URL =
+  'https://raw.githubusercontent.com/RichardClawson013/ModelWorldSME/main/worldmodel/sme_worldmodel_v1.5.json';
+
+async function boot() {
+  try {
+    const resp = await fetch(WORLDMODEL_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const model = await resp.json();
+
+    loading.classList.add('hidden');
+    flow = new InterviewFlow(model);
+
+    const firstQ = flow.next();
+    updateProgress(flow.phase);
+    showQuestion(firstQ);
+  } catch (err) {
+    loading.innerHTML = `
+      <p style="color:#ef4444;font-weight:600">Could not load knowledge base</p>
+      <p style="color:#6b7280;font-size:0.875rem;margin-top:8px">${err.message}</p>
+      <p style="color:#6b7280;font-size:0.8rem;margin-top:16px">
+        Run locally: <code>python examples/terminal_example.py</code>
+      </p>`;
+  }
+}
+
+boot();
+</script>
+</body>
+</html>

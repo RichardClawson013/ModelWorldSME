@@ -5,6 +5,8 @@ No API key needed — matching is fully deterministic.
 Run: python examples/terminal_example.py
 """
 
+from pathlib import Path
+
 from model_world_sme import InterviewFlow, default_worldmodel_path
 
 
@@ -35,6 +37,7 @@ def main() -> None:
     (out_dir / f"worldmodel_{agent_name}.json").write_text(result.worldmodel_json, encoding="utf-8")
     (out_dir / f"agent_config_{agent_name}.yaml").write_text(result.agent_config_yaml, encoding="utf-8")
     (out_dir / f"SOUL_{agent_name}.md").write_text(result.soul_md, encoding="utf-8")
+    (out_dir / f"report_{agent_name}.html").write_text(result.html_report, encoding="utf-8")
 
     print(f"  Tasks confirmed: {result.summary.get('total_active', 0)}")
     print(f"  Agent name:      {agent_name}")

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "model-world-sme"
 version = "1.0.0"
-description = "Conversational business elicitation interview that produces a personalized world model for AI agents"
+description = "Interview a business owner. Build a world model. Give their agent something to actually work with."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
