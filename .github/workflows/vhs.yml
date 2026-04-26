@@ -23,14 +23,32 @@ jobs:
       - name: Install package
         run: pip install -e . -q
 
-      - name: Verify demo script runs
-        run: python examples/demo_run.py
-        timeout-minutes: 2
+      - name: Install VHS dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg xvfb fonts-noto-color-emoji
 
-      - name: Generate GIF with VHS
-        uses: charmbracelet/vhs-action@v1
-        with:
-          path: demo.tape
+      - name: Install VHS binary
+        run: |
+          VHS_VERSION="0.7.2"
+          wget -q "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_Linux_x86_64.tar.gz"
+          tar -xzf "vhs_${VHS_VERSION}_Linux_x86_64.tar.gz"
+          sudo mv vhs /usr/local/bin/vhs
+          vhs --version
+
+      - name: Install ttyd (VHS terminal backend)
+        run: |
+          wget -q "https://github.com/tsl0922/ttyd/releases/download/1.7.4/ttyd.x86_64" -O ttyd
+          chmod +x ttyd
+          sudo mv ttyd /usr/local/bin/ttyd
+
+      - name: Generate GIF
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 2
+          export DISPLAY=:99
+          mkdir -p docs
+          vhs demo.tape
         timeout-minutes: 3
 
       - name: Commit GIF
