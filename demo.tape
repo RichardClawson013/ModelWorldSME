@@ -1,4 +1,4 @@
-# demo.tape — VHS recording script  (v2)
+# demo.tape — VHS recording script  (v3)
 # Generates docs/demo.gif for the README
 # Tool: https://github.com/charmbracelet/vhs
 
